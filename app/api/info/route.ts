@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,15 +14,19 @@ export async function GET(request: Request) {
 
   try {
     // A. MEMORIA: Revisar Supabase primero
-    const { data: cachedEntry } = await supabase
-      .from('api_cache')
-      .select('data')
-      .eq('key', cacheKey)
-      .single();
+    try {
+      const { data: cachedEntry } = await supabase
+        .from('api_cache')
+        .select('data')
+        .eq('key', cacheKey)
+        .single();
 
-    if (cachedEntry && cachedEntry.data) {
-      console.log(`⚡ CACHÉ HIT: Info recuperada para "${id}"`);
-      return NextResponse.json(cachedEntry.data);
+      if (cachedEntry && cachedEntry.data) {
+        console.log(`⚡ CACHÉ HIT: Info recuperada para "${id}"`);
+        return NextResponse.json(cachedEntry.data);
+      }
+    } catch (cacheErr) {
+      console.warn('Cache lookup failed, proceeding to direct scraping');
     }
 
     // B. SCRAPING DIRECTO (Sin Proxies)
@@ -85,8 +85,12 @@ export async function GET(request: Request) {
 
     // C. GUARDADO EN SUPABASE
     if (episodes.length > 0) {
-      await supabase.from('api_cache').insert({ key: cacheKey, data: animeInfo });
-      console.log(`💾 INFO GUARDADA: "${id}" en Supabase.`);
+      try {
+        await supabase.from('api_cache').insert({ key: cacheKey, data: animeInfo });
+        console.log(`💾 INFO GUARDADA: "${id}" en Supabase.`);
+      } catch (insertErr) {
+        console.warn('Cache insert failed:', insertErr);
+      }
     }
 
     return NextResponse.json(animeInfo);

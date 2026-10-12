@@ -7,24 +7,30 @@ import { cn } from "@/lib/utils";
 interface AnimeCardProps {
   id: string;
   title: string;
-  image: string;
+  image?: string;
+  poster?: string;
   type?: string;
-  rating?: number;
+  rating?: number | string;
+  isNew?: boolean;
+  [key: string]: any;
 }
 
 export function AnimeCard({
   id,
   title,
   image,
+  poster,
   type,
   rating,
+  isNew,
 }: AnimeCardProps) {
+  const displayImage = image || poster || '';
   return (
     <Link href={`/anime/${id}`} className="group block relative">
       <div className="relative overflow-hidden rounded-2xl aspect-[2/3] bg-neutral-900 border border-white/5">
         {/* Poster Image */}
         <img
-          src={image}
+          src={displayImage}
           alt={title}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           loading="lazy"

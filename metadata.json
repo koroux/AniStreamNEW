@@ -1,0 +1,8 @@
+{
+  "name": "AniStreamJD",
+  "description": "La mejor plataforma de anime creada por Jared Ortiz",
+  "prompt": "Anime streaming platform with anime catalog, episode browser, video player, genres, and favorites",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
