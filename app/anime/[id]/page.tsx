@@ -156,7 +156,7 @@ export default function AnimeDetail() {
     return info.episodes.filter((e: any) => (e.season || 1) === selectedSeason);
   }, [info, selectedSeason]);
 
-  // --- CARGAR EPISODIO ---
+  // --- CARGAR EPISODIO CON AUTO-FAILOVER ---
   const loadEpisode = async (episode: any) => {
     if (!episode) return;
     
@@ -187,9 +187,12 @@ export default function AnimeDetail() {
       if (data.servers && data.servers.length > 0) {
         setServerList(data.servers);
         setCurrentVideoUrl(data.servers[0].url);
+      } else {
+        // Fallback si no hay servidores
+        console.warn('No servers found for episode');
       }
     } catch (error) {
-      console.error(error);
+      console.error('Error loading video:', error);
     } finally {
       setLoadingVideo(false);
     }
