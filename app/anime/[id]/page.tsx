@@ -44,6 +44,27 @@ export default function AnimeDetail() {
         setInfo(data);
         if (data.episodes && data.episodes.length > 0) {
            setSelectedSeason(data.episodes[0].season || 1);
+           
+           // Fetch first episode video directly to avoid dependency warnings
+           const episode = data.episodes[0];
+           window.scrollTo({ top: 0, behavior: 'smooth' });
+           setCurrentEp(episode);
+           setLoadingVideo(true);
+           setServerList([]);
+           setCurrentVideoUrl('');
+
+           try {
+             const res = await fetch(`/api/video?id=${id}&ep=${episode.number}`);
+             const resData = await res.json();
+             if (resData.servers && resData.servers.length > 0) {
+               setServerList(resData.servers);
+               setCurrentVideoUrl(resData.servers[0].url);
+             }
+           } catch (error) {
+             console.error(error);
+           } finally {
+             setLoadingVideo(false);
+           }
         }
         setLoadingInfo(false);
       }
