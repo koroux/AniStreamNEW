@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check } from 'lucide-react';
+import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown } from 'lucide-react';
+import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
 import { supabase } from '@/lib/supabase';
 import { getOrFetch } from '@/lib/smart-fetch';
