@@ -61,8 +61,9 @@ export default function AnimeDetail() {
              const resData = await res.json();
              if (resData.servers && resData.servers.length > 0) {
                setServerList(resData.servers);
-               const directServer = resData.servers.find((s: any) => s.isDirect || s.url.includes('.m3u8') || s.url.endsWith('.mp4'));
-               setCurrentVideoUrl((directServer || resData.servers[0]).url);
+               const directServer = resData.servers.find((s: any) => s.isDirect && s.url.startsWith('http') && (s.url.includes('.m3u8') || s.url.endsWith('.mp4')));
+               const voeServer = resData.servers.find((s: any) => s.name.toLowerCase().includes('voe'));
+               setCurrentVideoUrl((directServer || voeServer || resData.servers[0]).url);
              }
            } catch (error) {
              console.error(error);
@@ -190,8 +191,9 @@ export default function AnimeDetail() {
       const data = await res.json();
       if (data.servers && data.servers.length > 0) {
         setServerList(data.servers);
-        const directServer = data.servers.find((s: any) => s.isDirect || s.url.includes('.m3u8') || s.url.endsWith('.mp4'));
-        setCurrentVideoUrl((directServer || data.servers[0]).url);
+        const directServer = data.servers.find((s: any) => s.isDirect && s.url.startsWith('http') && (s.url.includes('.m3u8') || s.url.endsWith('.mp4')));
+        const voeServer = data.servers.find((s: any) => s.name.toLowerCase().includes('voe'));
+        setCurrentVideoUrl((directServer || voeServer || data.servers[0]).url);
       } else {
         // Fallback si no hay servidores
         console.warn('No servers found for episode');
@@ -239,7 +241,7 @@ export default function AnimeDetail() {
                   <p className="text-neutral-400 font-medium text-sm animate-pulse">Conectando con el servidor...</p>
                 </div>
               ) : currentVideoUrl ? (
-                currentVideoUrl.includes('.m3u8') || currentVideoUrl.endsWith('.mp4') ? (
+                currentVideoUrl.startsWith('http') && !currentVideoUrl.includes('novideo') && (currentVideoUrl.includes('.m3u8') || currentVideoUrl.endsWith('.mp4')) ? (
                   <NativeVideoPlayer src={currentVideoUrl} poster={info?.poster} />
                 ) : (
                   <div className="relative w-full h-full">
@@ -282,7 +284,7 @@ export default function AnimeDetail() {
                   <Server size={13}/> Servidor:
                 </span>
                 {serverList.map((server, idx) => {
-                  const isServerDirect = server.isDirect || server.url.includes('.m3u8') || server.url.endsWith('.mp4');
+                  const isServerDirect = server.isDirect && server.url.startsWith('http') && !server.url.includes('novideo') && (server.url.includes('.m3u8') || server.url.endsWith('.mp4'));
                   return (
                     <button
                       key={idx}

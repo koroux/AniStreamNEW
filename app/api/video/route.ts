@@ -31,12 +31,17 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
       if (res.ok) {
         const text = await res.text();
         const fileMatch = text.match(/file:\s*'([^']+\.mp4[^']*)'/i) || text.match(/file:\s*"([^"]+\.mp4[^"]*)"/i);
-        if (fileMatch && fileMatch[1]) return fileMatch[1];
+        if (fileMatch && fileMatch[1]) {
+          const directCandidate = fileMatch[1].trim();
+          if (directCandidate.startsWith('http') && !directCandidate.includes('novideo')) {
+            return directCandidate;
+          }
+        }
       }
     }
 
     // 3. Si el enlace ya es directo .m3u8 o .mp4
-    if (embedUrl.includes('.m3u8') || embedUrl.endsWith('.mp4')) {
+    if (embedUrl.startsWith('http') && !embedUrl.includes('novideo') && (embedUrl.includes('.m3u8') || embedUrl.endsWith('.mp4'))) {
       return embedUrl;
     }
 

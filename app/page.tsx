@@ -22,6 +22,7 @@ export default function LoginPage() {
     // Guardamos la "credencial" de invitado
     localStorage.setItem('userMode', 'guest');
     localStorage.removeItem('userData'); // Limpiamos datos viejos por si acaso
+    sessionStorage.removeItem('brave_banner_dismissed'); // Mostramos el banner una vez en este nuevo inicio
     router.push('/home');
   };
 
@@ -82,7 +83,10 @@ export default function LoginPage() {
     // B. Guardamos el objeto usuario (para que la Navbar lea el nombre y Avatar)
     localStorage.setItem('userData', JSON.stringify(user));
 
-    // C. Nos vamos al Home
+    // C. Reiniciamos el banner para mostrarlo una vez en este inicio
+    sessionStorage.removeItem('brave_banner_dismissed');
+
+    // D. Nos vamos al Home
     router.push('/home');
   };
 

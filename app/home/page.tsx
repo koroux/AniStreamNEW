@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
+import { BraveBanner } from '@/components/brave-banner';
 import { HeroSection } from '@/components/hero-section';
 import { AnimeCard } from '@/components/anime-card';
 import { Loader2, Flame, Sparkles, Trophy } from 'lucide-react';
@@ -61,6 +62,9 @@ function HomeContent() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pb-20">
       <Navbar />
+      <div className="pt-16 md:pt-20">
+        <BraveBanner />
+      </div>
 
       {loading ? (
         <div className="h-screen flex items-center justify-center">
