@@ -225,23 +225,27 @@ export default function AnimeDetail() {
                   <p className="text-gray-400 font-medium animate-pulse">Conectando servidores...</p>
                 </div>
               ) : currentVideoUrl ? (
-                <div className="relative w-full h-full">
-                  <div 
-                    onClick={() => {
-                      setShieldActive(true);
-                      setTimeout(() => setShieldActive(false), 800);
-                    }}
-                    className={`absolute inset-0 z-30 cursor-pointer transition-colors ${shieldActive ? 'bg-black/20' : 'bg-transparent pointer-events-none'}`}
-                    title="Haz clic si hay publicidad"
-                  />
-                  <iframe 
-                    src={currentVideoUrl} 
-                    className="w-full h-full relative z-20"
-                    allowFullScreen
-                    allow="autoplay; encrypted-media; fullscreen"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
+                currentVideoUrl.includes('.m3u8') || currentVideoUrl.endsWith('.mp4') ? (
+                  <NativeVideoPlayer src={currentVideoUrl} poster={info?.poster} />
+                ) : (
+                  <div className="relative w-full h-full">
+                    <div 
+                      onClick={() => {
+                        setShieldActive(true);
+                        setTimeout(() => setShieldActive(false), 800);
+                      }}
+                      className={`absolute inset-0 z-30 cursor-pointer transition-colors ${shieldActive ? 'bg-black/20' : 'bg-transparent pointer-events-none'}`}
+                      title="Haz clic si hay publicidad"
+                    />
+                    <iframe 
+                      src={currentVideoUrl} 
+                      className="w-full h-full relative z-20"
+                      allowFullScreen
+                      allow="autoplay; encrypted-media; fullscreen"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                )
               ) : (
                 <div 
                   className="absolute inset-0 bg-cover bg-center cursor-pointer group"

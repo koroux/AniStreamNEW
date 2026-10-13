@@ -1,7 +1,51 @@
 import { NextResponse } from 'next/server';
-import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
+
+async function extractDirectStream(serverName: string, embedUrl: string): Promise<string | null> {
+  const normalized = serverName.toLowerCase();
+
+  try {
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Referer': 'https://tioanime.com/'
+    };
+
+    // 1. VOE Extractor (busca hls .m3u8 o mp4 en el script interno)
+    if (normalized.includes('voe') || embedUrl.includes('voe.sx')) {
+      const res = await fetch(embedUrl, { headers, signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const text = await res.text();
+        const hlsMatch = text.match(/'hls':\s*'([^']+)'/) || text.match(/"hls":\s*"([^"]+)"/);
+        if (hlsMatch && hlsMatch[1]) return hlsMatch[1];
+        
+        const mp4Match = text.match(/'mp4':\s*'([^']+)'/) || text.match(/"mp4":\s*"([^"]+)"/);
+        if (mp4Match && mp4Match[1]) return mp4Match[1];
+      }
+    }
+
+    // 2. YourUpload Extractor (busca file: 'https://...mp4' en jwplayer)
+    if (normalized.includes('yourupload') || embedUrl.includes('yourupload.com')) {
+      const res = await fetch(embedUrl, { headers, signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const text = await res.text();
+        const fileMatch = text.match(/file:\s*'([^']+\.mp4[^']*)'/i) || text.match(/file:\s*"([^"]+\.mp4[^"]*)"/i);
+        if (fileMatch && fileMatch[1]) return fileMatch[1];
+      }
+    }
+
+    // 3. Si el enlace ya es directo .m3u8 o .mp4
+    if (embedUrl.includes('.m3u8') || embedUrl.endsWith('.mp4')) {
+      return embedUrl;
+    }
+
+  } catch (err) {
+    // Si falla la extracción, el backend continúa sin romper la app
+  }
+
+  return null;
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -36,24 +80,27 @@ export async function GET(request: Request) {
 
     const rawServers = JSON.parse(match[1]);
     
-    const servers = rawServers
-      .map((s: any) => {
-        let cleanUrl = s[1];
-        if (cleanUrl.includes('<iframe')) {
-          const srcMatch = cleanUrl.match(/src="([^"]+)"/);
-          if (srcMatch && srcMatch[1]) cleanUrl = srcMatch[1];
-        }
-        
-        // Detectar si la URL es un stream directo o .m3u8 si es posible, o mantener como embed/directo
-        let isDirect = cleanUrl.endsWith('.mp4') || cleanUrl.includes('.m3u8');
+    // Procesamos cada servidor y tratamos de extraer el stream directo (.m3u8 / .mp4)
+    const servers = await Promise.all(
+      rawServers
+        .filter((s: any) => !s[0].toLowerCase().includes('mega') && s[1])
+        .map(async (s: any) => {
+          let cleanUrl = s[1];
+          if (cleanUrl.includes('<iframe')) {
+            const srcMatch = cleanUrl.match(/src="([^"]+)"/);
+            if (srcMatch && srcMatch[1]) cleanUrl = srcMatch[1];
+          }
 
-        return {
-          name: s[0],
-          url: cleanUrl,
-          isDirect
-        };
-      })
-      .filter((s: any) => !s.name.toLowerCase().includes('mega') && s.url.startsWith('http'));
+          const directStream = await extractDirectStream(s[0], cleanUrl);
+
+          return {
+            name: s[0],
+            embedUrl: cleanUrl,
+            url: directStream || cleanUrl,
+            isDirect: Boolean(directStream)
+          };
+        })
+    );
 
     return NextResponse.json({ servers });
 
