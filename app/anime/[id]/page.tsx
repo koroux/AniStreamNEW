@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown } from 'lucide-react';
+import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown, ChevronLeft, ChevronRight, Moon, Sun, Search as SearchIcon, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
 import { NativeVideoPlayer } from '@/components/native-video-player';
@@ -27,6 +27,12 @@ export default function AnimeDetail() {
   const [watchedEpisodes, setWatchedEpisodes] = useState<number[]>([]);
   const [shieldActive, setShieldActive] = useState(true);
   
+  // --- MODO CINE / TEATRAL ---
+  const [isCinemaMode, setIsCinemaMode] = useState(false);
+
+  // --- BUSCADOR / FILTRO RÁPIDO DE EPISODIOS ---
+  const [epSearchQuery, setEpSearchQuery] = useState('');
+
   // --- FAVORITOS (NUEVO) ---
   const [isFavorite, setIsFavorite] = useState(false);
   const [loadingFav, setLoadingFav] = useState(false);
@@ -157,8 +163,38 @@ export default function AnimeDetail() {
 
   const filteredEpisodes = useMemo(() => {
     if (!info?.episodes) return [];
-    return info.episodes.filter((e: any) => (e.season || 1) === selectedSeason);
-  }, [info, selectedSeason]);
+    let list = info.episodes.filter((e: any) => (e.season || 1) === selectedSeason);
+    if (epSearchQuery.trim()) {
+      const q = epSearchQuery.trim().toLowerCase();
+      list = list.filter((e: any) => 
+        String(e.number).includes(q) || (e.title && e.title.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }, [info, selectedSeason, epSearchQuery]);
+
+  // Navegación rápida entre episodios (todos los de la serie en orden)
+  const allEpisodes = useMemo(() => {
+    if (!info?.episodes) return [];
+    return [...info.episodes].sort((a: any, b: any) => a.number - b.number);
+  }, [info]);
+
+  const currentEpIndex = useMemo(() => {
+    if (!currentEp || allEpisodes.length === 0) return -1;
+    return allEpisodes.findIndex((e: any) => e.number === currentEp.number);
+  }, [currentEp, allEpisodes]);
+
+  const prevEpisode = useMemo(() => {
+    if (currentEpIndex > 0) return allEpisodes[currentEpIndex - 1];
+    return null;
+  }, [currentEpIndex, allEpisodes]);
+
+  const nextEpisode = useMemo(() => {
+    if (currentEpIndex >= 0 && currentEpIndex < allEpisodes.length - 1) {
+      return allEpisodes[currentEpIndex + 1];
+    }
+    return null;
+  }, [currentEpIndex, allEpisodes]);
 
   // --- CARGAR EPISODIO CON AUTO-FAILOVER ---
   const loadEpisode = async (episode: any) => {
@@ -307,8 +343,84 @@ export default function AnimeDetail() {
               </div>
             )}
 
+            {/* BARRA DE NAVEGACIÓN DE EPISODIOS Y MODO CINE */}
+            {currentEp && (
+              <div className="bg-[#161616] px-4 py-2.5 flex items-center justify-between border-b border-white/5 gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => prevEpisode && loadEpisode(prevEpisode)}
+                    disabled={!prevEpisode || loadingVideo}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      prevEpisode
+                        ? "bg-neutral-800 hover:bg-orange-600 text-white active:scale-95"
+                        : "bg-neutral-900 text-neutral-600 cursor-not-allowed opacity-50"
+                    }`}
+                    title={prevEpisode ? `Episodio ${prevEpisode.number}` : "No hay episodio anterior"}
+                  >
+                    <ChevronLeft size={16} />
+                    <span className="hidden sm:inline">Anterior</span>
+                  </button>
+
+                  <span className="text-xs text-neutral-400 font-medium px-2 py-1 bg-black/40 rounded border border-white/5">
+                    Episodio <strong className="text-white font-bold">{currentEp.number}</strong>
+                    {allEpisodes.length > 0 && <span className="text-neutral-500 font-normal"> / {allEpisodes.length}</span>}
+                  </span>
+
+                  <button
+                    onClick={() => nextEpisode && loadEpisode(nextEpisode)}
+                    disabled={!nextEpisode || loadingVideo}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      nextEpisode
+                        ? "bg-orange-600 hover:bg-orange-500 text-white shadow-md shadow-orange-900/20 active:scale-95"
+                        : "bg-neutral-900 text-neutral-600 cursor-not-allowed opacity-50"
+                    }`}
+                    title={nextEpisode ? `Episodio ${nextEpisode.number}` : "Último episodio disponible"}
+                  >
+                    <span className="hidden sm:inline">Siguiente</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+
+                {/* BOTÓN MODO CINE */}
+                <button
+                  onClick={() => setIsCinemaMode(!isCinemaMode)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                    isCinemaMode
+                      ? "bg-orange-600/20 text-orange-400 border-orange-500/40"
+                      : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-transparent hover:text-white"
+                  }`}
+                  title="Activa el modo cine para enfocar la pantalla en el reproductor"
+                >
+                  {isCinemaMode ? <Sun size={14} className="text-orange-400" /> : <Moon size={14} />}
+                  <span className="hidden md:inline">{isCinemaMode ? "Desactivar Cine" : "Modo Cine"}</span>
+                </button>
+              </div>
+            )}
+
+            {/* AVISO PERMANENTE SUTIL: RECOMENDACIÓN DE BRAVE */}
+            <div className="bg-[#0f0f0f] border-b border-white/5 px-4 py-2 flex items-center justify-between gap-3 text-[11px] md:text-xs">
+              <div className="flex items-center gap-2 text-neutral-400 min-w-0">
+                <ShieldAlert size={14} className="text-orange-500 flex-shrink-0" />
+                <p className="truncate sm:whitespace-normal">
+                  <span className="text-neutral-300 font-semibold">Consejo de seguridad:</span> Usa el navegador{' '}
+                  <strong className="text-orange-400">Brave</strong> para evitar anuncios invasivos o imágenes emergentes no deseadas de los servidores externos.
+                </p>
+              </div>
+
+              <a
+                href="https://play.google.com/store/apps/details?id=com.brave.browser"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-orange-500 hover:text-orange-400 font-bold uppercase tracking-wider flex-shrink-0 text-[10px] md:text-[11px] hover:underline"
+              >
+                Obtener Brave &rarr;
+              </a>
+            </div>
+
             {/* INFO */}
-            <div className="p-6 md:p-8 bg-[#0a0a0a] border-b border-gray-900">
+            <div className={`p-6 md:p-8 bg-[#0a0a0a] border-b border-gray-900 transition-opacity duration-300 ${
+              isCinemaMode ? 'opacity-20 hover:opacity-100' : 'opacity-100'
+            }`}>
               <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{info?.title}</h1>
               {currentEp && <p className="text-orange-500 font-bold text-sm mb-4">Viendo: S{currentEp.season || 1} E{currentEp.number}</p>}
               
@@ -371,7 +483,9 @@ export default function AnimeDetail() {
           </div>
 
           {/* DERECHA: LISTA TEMPORADAS */}
-          <div className="w-full lg:w-[25%] bg-[#121212] border-l border-gray-800 flex flex-col h-auto lg:h-[calc(100vh-4rem)] lg:sticky lg:top-16 relative">
+          <div className={`w-full lg:w-[25%] bg-[#121212] border-l border-gray-800 flex flex-col h-auto lg:h-[calc(100vh-4rem)] lg:sticky lg:top-16 relative transition-opacity duration-300 ${
+            isCinemaMode ? 'opacity-20 hover:opacity-100' : 'opacity-100'
+          }`}>
             <div className="p-4 border-b border-gray-800 bg-[#121212] z-20 flex justify-between items-center shadow-md relative">
               <button 
                 onClick={() => setIsSeasonMenuOpen(!isSeasonMenuOpen)}
@@ -413,6 +527,28 @@ export default function AnimeDetail() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Buscador de episodio en la lista */}
+            <div className="p-2.5 bg-[#181818] border-b border-white/5">
+              <div className="relative">
+                <SearchIcon size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar o ir a ep. (ej. 12)..."
+                  value={epSearchQuery}
+                  onChange={(e) => setEpSearchQuery(e.target.value)}
+                  className="w-full bg-[#101010] border border-white/10 rounded-md py-1.5 pl-8 pr-7 text-xs text-white placeholder:text-neutral-500 focus:outline-none focus:border-orange-500"
+                />
+                {epSearchQuery && (
+                  <button
+                    onClick={() => setEpSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="overflow-y-auto flex-1 p-2 space-y-2 custom-scrollbar">
