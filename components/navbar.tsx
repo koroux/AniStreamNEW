@@ -51,69 +51,63 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
 
   return (
     <nav className={navClasses}>
-      <div className="container mx-auto px-4 md:px-6 h-24 flex items-center justify-between gap-4">
+      <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4">
         
         {/* LOGO */}
         <Link href="/home" className="flex items-center gap-2 md:gap-3 group flex-shrink-0">
-          <div className="w-8 h-8 md:w-14 md:h-14 rounded-xl bg-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg shadow-orange-900/20">
-            <Play className="w-4 h-8 md:w-8 md:h-8 text-white fill-current" />
+          <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg shadow-orange-900/30">
+            <Play className="w-4 h-4 md:w-5 md:h-5 text-white fill-current" />
           </div>
           <div className="flex flex-col justify-center">
-            <span className="text-lg md:text-4xl font-black text-white tracking-tight leading-none">
+            <span className="text-xl md:text-2xl font-black text-white tracking-tight leading-none">
               Ani<span className="text-orange-500">Stream</span>
             </span>
-            <span className="text-[0.55rem] md:text-xs font-bold text-neutral-500 tracking-widest uppercase leading-tight pl-[8px] group-hover:text-orange-400 transition-colors block">
-              byJaredOrtiz
+            <span className="text-[0.6rem] md:text-[0.65rem] font-bold text-neutral-400 tracking-wider uppercase leading-tight group-hover:text-orange-400 transition-colors block">
+              JD
             </span>
           </div>
         </Link>
 
         {/* MENÚ ESCRITORIO */}
-        <div className="hidden md:flex items-center gap-10">
-          <Link href="/home" className="text-white hover:text-orange-500 transition-colors font-medium text-lg">Inicio</Link>
-          <Link href="/browse" className="text-neutral-300 hover:text-orange-500 transition-colors text-lg font-medium flex items-center gap-1"><Filter size={14} /> Explorar</Link>
+        <div className="hidden md:flex items-center gap-8">
+          <Link href="/home" className="text-white hover:text-orange-500 transition-colors font-medium text-base">Inicio</Link>
+          <Link href="/browse" className="text-neutral-300 hover:text-orange-500 transition-colors text-base font-medium flex items-center gap-1.5"><Filter size={16} /> Explorar</Link>
           {!isGuest && (
-             <Link href="/favorites" className="text-neutral-300 hover:text-orange-500 transition-colors text-lg font-medium flex items-center gap-1">Mi Lista</Link>
+             <Link href="/favorites" className="text-neutral-300 hover:text-orange-500 transition-colors text-base font-medium flex items-center gap-1.5">Mi Lista</Link>
           )}
         </div>
 
         {/* BUSCADOR */}
         <div className="hidden md:flex flex-1 max-w-md mx-4">
           <form onSubmit={handleSearch} className="relative w-full group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500 group-focus-within:text-orange-500 transition-colors" size={20} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-orange-500 transition-colors" size={18} />
             <input 
               type="text" 
               placeholder="Buscar anime..." 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-neutral-900/50 border border-white/10 rounded-full py-4 pl-10 pr-5 text-lg text-white focus:outline-none focus:border-orange-500/50 focus:bg-neutral-900 transition-all placeholder:text-neutral-600"
+              className="w-full bg-neutral-900/70 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-orange-500 focus:bg-neutral-900 transition-all placeholder:text-neutral-500"
             />
           </form>
         </div>
 
         {/* ACCIONES DERECHA */}
-        <div className="flex items-center gap-2 md:gap-4">
+        <div className="flex items-center gap-2 md:gap-3">
            {!isMobileMenuOpen && (
-             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-white p-2">
+             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-white p-2 hover:bg-white/10 rounded-lg">
                <Search size={20} />
              </button>
            )}
 
            {/* LÓGICA INVITADO vs USUARIO */}
            {isGuest ? (
-             <div className="flex items-center gap-3">
-                <Link href="/" className="hidden lg:block text-xs font-bold text-neutral-300 hover:text-white uppercase tracking-wide">
-                  Acceder
-                </Link>
-                <Link href="/" className="flex items-center gap-2 bg-[#f47521] hover:bg-[#ff8f45] text-black px-3 py-1.5 md:px-4 md:py-1.5 rounded-sm transition-transform active:scale-95 group">
-                  <Crown size={16} className="fill-black group-hover:scale-110 transition-transform" />
-                  <div className="flex flex-col leading-none hidden sm:flex">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Prueba Gratis</span>
-                    <span className="text-[10px] font-medium opacity-80">Premium</span>
-                  </div>
-                  <span className="sm:hidden text-xs font-bold">PREMIUM</span>
-                </Link>
-             </div>
+             <Link 
+               href="/" 
+               className="flex items-center gap-1.5 bg-orange-600 hover:bg-orange-500 text-white font-semibold text-xs md:text-sm px-3.5 py-1.5 md:px-4 md:py-2 rounded-lg shadow-md hover:shadow-orange-600/20 transition-all active:scale-95"
+             >
+               <User size={15} />
+               <span>Iniciar Sesión</span>
+             </Link>
            ) : (
              <>
                 <button className="text-neutral-300 hover:text-white transition-colors relative hidden sm:block">

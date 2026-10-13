@@ -215,16 +215,28 @@ export default function AnimeDetail() {
     <div className="min-h-screen bg-black text-white font-sans">
       <Navbar user={user} isGuest={isGuest} />
 
-      <main className="pt-16 w-full max-w-[1800px] mx-auto">
+      <main className="pt-16 md:pt-20 w-full max-w-[1800px] mx-auto">
         <div className="flex flex-col lg:flex-row w-full">
           
           {/* IZQUIERDA: REPRODUCTOR */}
           <div className="w-full lg:w-[75%] flex flex-col">
-            <div className="relative w-full aspect-video bg-black shadow-[0_0_40px_rgba(234,88,12,0.1)] z-10">
+            {/* Cabecera del reproductor en móvil */}
+            {currentEp && (
+              <div className="flex items-center justify-between px-4 py-2.5 bg-[#121212] border-b border-white/5 text-xs">
+                <span className="font-semibold text-neutral-300 truncate max-w-[70%]">
+                  {info?.title || 'Anime'}
+                </span>
+                <span className="text-orange-500 font-bold bg-orange-950/40 px-2 py-0.5 rounded border border-orange-500/20">
+                  Episodio {currentEp.number}
+                </span>
+              </div>
+            )}
+
+            <div className="relative w-full aspect-video bg-black shadow-2xl overflow-hidden">
               {loadingVideo ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0a]">
-                  <Loader2 className="animate-spin text-orange-500 mb-4" size={48} />
-                  <p className="text-gray-400 font-medium animate-pulse">Conectando servidores...</p>
+                  <Loader2 className="animate-spin text-orange-500 mb-4" size={42} />
+                  <p className="text-neutral-400 font-medium text-sm animate-pulse">Conectando con el servidor...</p>
                 </div>
               ) : currentVideoUrl ? (
                 currentVideoUrl.includes('.m3u8') || currentVideoUrl.endsWith('.mp4') ? (
@@ -241,7 +253,7 @@ export default function AnimeDetail() {
                     />
                     <iframe 
                       src={currentVideoUrl} 
-                      className="w-full h-full relative z-20"
+                      className="w-full h-full relative z-20 border-0"
                       allowFullScreen
                       allow="autoplay; encrypted-media; fullscreen"
                       referrerPolicy="no-referrer"
@@ -253,10 +265,10 @@ export default function AnimeDetail() {
                   className="absolute inset-0 bg-cover bg-center cursor-pointer group"
                   style={{ backgroundImage: `url('${info?.banner || info?.poster}')` }}
                 >
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center group-hover:bg-black/40 transition-all">
-                    <p className="text-xl font-bold text-white mb-4">Selecciona un episodio para empezar</p>
-                    <div className="w-16 h-16 bg-orange-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-xl">
-                      <Play fill="white" className="ml-1" size={32} />
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center group-hover:bg-black/40 transition-all p-4 text-center">
+                    <p className="text-lg md:text-xl font-bold text-white mb-3">Selecciona un episodio para empezar</p>
+                    <div className="w-14 h-14 bg-orange-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform shadow-xl">
+                      <Play fill="white" className="ml-1" size={26} />
                     </div>
                   </div>
                 </div>
@@ -265,9 +277,9 @@ export default function AnimeDetail() {
 
             {/* Servidores */}
             {serverList.length > 0 && (
-              <div className="bg-[#1a1a1a] p-3 flex items-center gap-3 overflow-x-auto border-b border-gray-800">
-                <span className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 flex-shrink-0">
-                  <Server size={14}/> Fuentes:
+              <div className="bg-[#121212] px-3 py-2.5 flex items-center gap-2 overflow-x-auto border-b border-white/5 scrollbar-none">
+                <span className="text-[11px] font-bold text-neutral-400 uppercase flex items-center gap-1.5 flex-shrink-0">
+                  <Server size={13}/> Servidor:
                 </span>
                 {serverList.map((server, idx) => {
                   const isServerDirect = server.isDirect || server.url.includes('.m3u8') || server.url.endsWith('.mp4');
