@@ -36,17 +36,20 @@ export async function GET(request: Request) {
 
     const rawServers = JSON.parse(match[1]);
     
-    const servers = rawServers.map((s: any) => {
-      let cleanUrl = s[1];
-      if (cleanUrl.includes('<iframe')) {
-        const srcMatch = cleanUrl.match(/src="([^"]+)"/);
-        if (srcMatch && srcMatch[1]) cleanUrl = srcMatch[1];
-      }
-      return {
-        name: s[0],
-        url: cleanUrl
-      };
-    });
+    const servers = rawServers
+      .map((s: any) => {
+        let cleanUrl = s[1];
+        if (cleanUrl.includes('<iframe')) {
+          const srcMatch = cleanUrl.match(/src="([^"]+)"/);
+          if (srcMatch && srcMatch[1]) cleanUrl = srcMatch[1];
+        }
+        return {
+          name: s[0],
+          url: cleanUrl
+        };
+      })
+      // Filtramos servidores como Mega que requieren redirección o pestaña nueva y no se prestan para iframe limpio
+      .filter((s: any) => !s.name.toLowerCase().includes('mega') && s.url.startsWith('http'));
 
     return NextResponse.json({ servers });
 
