@@ -85,10 +85,13 @@ export async function GET(request: Request) {
 
     const rawServers = JSON.parse(match[1]);
     
-    // Procesamos cada servidor y tratamos de extraer el stream directo (.m3u8 / .mp4)
+    // Procesamos cada servidor y filtramos servidores caídos/rotos (YourUpload, Mega)
     const servers = await Promise.all(
       rawServers
-        .filter((s: any) => !s[0].toLowerCase().includes('mega') && s[1])
+        .filter((s: any) => {
+          const name = s[0].toLowerCase();
+          return !name.includes('mega') && !name.includes('yourupload') && s[1];
+        })
         .map(async (s: any) => {
           let cleanUrl = s[1];
           if (cleanUrl.includes('<iframe')) {
