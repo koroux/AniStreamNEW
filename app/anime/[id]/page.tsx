@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
+import { NativeVideoPlayer } from '@/components/native-video-player';
 import { supabase } from '@/lib/supabase';
 import { getOrFetch } from '@/lib/smart-fetch';
 
@@ -237,9 +238,8 @@ export default function AnimeDetail() {
                     src={currentVideoUrl} 
                     className="w-full h-full relative z-20"
                     allowFullScreen
-                    allow="autoplay; encrypted-media"
+                    allow="autoplay; encrypted-media; fullscreen"
                     referrerPolicy="no-referrer"
-                    sandbox="allow-scripts allow-same-origin allow-presentation"
                   />
                 </div>
               ) : (

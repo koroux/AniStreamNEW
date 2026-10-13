@@ -43,12 +43,16 @@ export async function GET(request: Request) {
           const srcMatch = cleanUrl.match(/src="([^"]+)"/);
           if (srcMatch && srcMatch[1]) cleanUrl = srcMatch[1];
         }
+        
+        // Detectar si la URL es un stream directo o .m3u8 si es posible, o mantener como embed/directo
+        let isDirect = cleanUrl.endsWith('.mp4') || cleanUrl.includes('.m3u8');
+
         return {
           name: s[0],
-          url: cleanUrl
+          url: cleanUrl,
+          isDirect
         };
       })
-      // Filtramos servidores como Mega que requieren redirección o pestaña nueva y no se prestan para iframe limpio
       .filter((s: any) => !s.name.toLowerCase().includes('mega') && s.url.startsWith('http'));
 
     return NextResponse.json({ servers });
