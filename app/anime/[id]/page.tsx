@@ -61,7 +61,8 @@ export default function AnimeDetail() {
              const resData = await res.json();
              if (resData.servers && resData.servers.length > 0) {
                setServerList(resData.servers);
-               setCurrentVideoUrl(resData.servers[0].url);
+               const directServer = resData.servers.find((s: any) => s.isDirect || s.url.includes('.m3u8') || s.url.endsWith('.mp4'));
+               setCurrentVideoUrl((directServer || resData.servers[0]).url);
              }
            } catch (error) {
              console.error(error);
@@ -189,7 +190,8 @@ export default function AnimeDetail() {
       const data = await res.json();
       if (data.servers && data.servers.length > 0) {
         setServerList(data.servers);
-        setCurrentVideoUrl(data.servers[0].url);
+        const directServer = data.servers.find((s: any) => s.isDirect || s.url.includes('.m3u8') || s.url.endsWith('.mp4'));
+        setCurrentVideoUrl((directServer || data.servers[0]).url);
       } else {
         // Fallback si no hay servidores
         console.warn('No servers found for episode');
@@ -267,19 +269,27 @@ export default function AnimeDetail() {
                 <span className="text-xs font-bold text-gray-400 uppercase flex items-center gap-2 flex-shrink-0">
                   <Server size={14}/> Fuentes:
                 </span>
-                {serverList.map((server, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentVideoUrl(server.url)}
-                    className={`px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wide transition-colors flex-shrink-0 ${
-                      currentVideoUrl === server.url
-                        ? 'bg-orange-600 text-white'
-                        : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
-                    }`}
-                  >
-                    {server.name}
-                  </button>
-                ))}
+                {serverList.map((server, idx) => {
+                  const isServerDirect = server.isDirect || server.url.includes('.m3u8') || server.url.endsWith('.mp4');
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentVideoUrl(server.url)}
+                      className={`px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wide transition-colors flex-shrink-0 flex items-center gap-1.5 ${
+                        currentVideoUrl === server.url
+                          ? 'bg-orange-600 text-white'
+                          : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
+                      }`}
+                    >
+                      <span>{server.name}</span>
+                      {isServerDirect && (
+                        <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30 font-semibold lowercase">
+                          sin anuncios
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
