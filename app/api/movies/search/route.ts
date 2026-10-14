@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function generateSlug(title: string): string {
-  return title
+function generateItemId(item: any): string {
+  const title = item.title || item.name || 'sin-titulo';
+  const slug = title
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
+  return `${item.id}-${slug}`; // 238-el-padrino
 }
 
 export async function GET(request: Request) {
@@ -45,12 +47,12 @@ export async function GET(request: Request) {
         const title = item.title || item.name || 'Sin título';
         const type = item.media_type === 'tv' ? 'Serie' : 'Película';
         return {
-          id: generateSlug(title),
+          id: generateItemId(item),
           tmdbId: item.id,
           title,
           poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
           type,
-          rating: typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : '4.8',
+          rating: typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : '0.0',
           synopsis: item.overview || 'Sinopsis no disponible.'
         };
       });

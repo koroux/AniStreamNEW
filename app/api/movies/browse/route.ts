@@ -2,20 +2,20 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function generateSlug(title: string): string {
-  return title
+function generateItemId(item: any): string {
+  const title = item.title || item.name || 'sin-titulo';
+  const slug = title
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
+  return `${item.id}-${slug}`; // 238-el-padrino
 }
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const type = searchParams.get('type') || 'all'; // all, Película, Serie
-  const genre = searchParams.get('genre') || 'Todos';
 
   const token = process.env.TMDB_READ_TOKEN;
   if (!token) {
@@ -45,23 +45,25 @@ export async function GET(request: Request) {
       (data.genres || []).forEach((g: any) => genreMap.set(g.id, g.name));
     }
 
-    const allGenresSet = new Set<string>(['Todos']);
-    genreMap.forEach((gName) => allGenresSet.add(gName));
+    const uniqueGenresSet = new Set<string>();
+    genreMap.forEach((gName) => {
+      if (gName) uniqueGenresSet.add(gName);
+    });
+    const sortedGenres = Array.from(uniqueGenresSet).sort((a, b) => a.localeCompare(b, 'es'));
 
     const formatItem = (item: any, typeOverride: 'Película' | 'Serie') => {
       const title = item.title || item.name || 'Sin título';
       const itemGenres = (item.genre_ids || []).map((id: number) => genreMap.get(id)).filter(Boolean);
       return {
-        id: generateSlug(title),
+        id: generateItemId(item),
         tmdbId: item.id,
         title,
         type: typeOverride,
         poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
-        banner: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : '',
+        banner: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : (item.poster_path ? `https://image.tmdb.org/t/p/w1280${item.poster_path}` : ''),
         synopsis: item.overview || 'Sinopsis no disponible.',
-        rating: typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : '4.8',
-        genres: itemGenres,
-        genre: itemGenres[0] || 'General'
+        rating: typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : '0.0',
+        genres: itemGenres
       };
     };
 
@@ -80,7 +82,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       movies,
       series,
-      genres: Array.from(allGenresSet)
+      genres: ['Todos', ...sortedGenres]
     });
 
   } catch (err) {

@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 const CHROME_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-async function fetchTMDBMeta(slug: string): Promise<{
+async function fetchTMDBMeta(idOrSlug: string): Promise<{
   title: string;
   type: 'Película' | 'Serie';
   poster: string;
@@ -15,7 +15,6 @@ async function fetchTMDBMeta(slug: string): Promise<{
   genres: string[];
   tmdbId: number;
 } | null> {
-  const query = slug.replace(/-/g, ' ');
   const token = process.env.TMDB_READ_TOKEN;
 
   if (!token) {
@@ -27,8 +26,57 @@ async function fetchTMDBMeta(slug: string): Promise<{
     'Accept': 'application/json'
   };
 
+  const match = idOrSlug.match(/^(\d+)-/);
+  const directTmdbId = match ? parseInt(match[1], 10) : null;
+
   try {
-    // 1. Buscar como Película
+    // 1. Si id inicia con ID numérico (ej: "238-el-padrino"), consultamos directamente por TMDB ID
+    if (directTmdbId) {
+      // Intentar primero como Película
+      const movieRes = await fetch(`https://api.themoviedb.org/3/movie/${directTmdbId}?language=es-ES`, {
+        headers,
+        signal: AbortSignal.timeout(8000)
+      });
+
+      if (movieRes.ok) {
+        const detail = await movieRes.json();
+        return {
+          title: detail.title || 'Sin título',
+          type: 'Película',
+          poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
+          banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
+          synopsis: detail.overview || 'Sinopsis no disponible.',
+          rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
+          genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
+          tmdbId: detail.id
+        };
+      }
+
+      // Si no es película (ej: 404), intentar como Serie (TV)
+      const tvRes = await fetch(`https://api.themoviedb.org/3/tv/${directTmdbId}?language=es-ES`, {
+        headers,
+        signal: AbortSignal.timeout(8000)
+      });
+
+      if (tvRes.ok) {
+        const detail = await tvRes.json();
+        return {
+          title: detail.name || 'Sin título',
+          type: 'Serie',
+          poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
+          banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
+          synopsis: detail.overview || 'Sinopsis no disponible.',
+          rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
+          genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
+          tmdbId: detail.id
+        };
+      }
+    }
+
+    // 2. Fallback: Búsqueda por texto si no viene prefijo numérico (ej: "el-padrino")
+    const query = idOrSlug.replace(/-/g, ' ');
+
+    // Buscar como Película
     const movieSearchRes = await fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=es-ES`, {
       headers,
       signal: AbortSignal.timeout(8000)
@@ -50,7 +98,7 @@ async function fetchTMDBMeta(slug: string): Promise<{
             poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
             banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
             synopsis: detail.overview || 'Sinopsis no disponible.',
-            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '4.8',
+            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
             genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
             tmdbId: detail.id
           };
@@ -58,7 +106,7 @@ async function fetchTMDBMeta(slug: string): Promise<{
       }
     }
 
-    // 2. Si no hay resultados de película, buscar como Serie (TV)
+    // Buscar como Serie (TV)
     const tvSearchRes = await fetch(`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&language=es-ES`, {
       headers,
       signal: AbortSignal.timeout(8000)
@@ -80,7 +128,7 @@ async function fetchTMDBMeta(slug: string): Promise<{
             poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
             banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
             synopsis: detail.overview || 'Sinopsis no disponible.',
-            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '4.8',
+            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
             genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
             tmdbId: detail.id
           };

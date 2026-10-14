@@ -2,14 +2,16 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function generateSlug(title: string): string {
-  return title
+function generateItemId(item: any): string {
+  const title = item.title || item.name || 'sin-titulo';
+  const slug = title
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
+  return `${item.id}-${slug}`; // 238-el-padrino
 }
 
 export async function GET() {
@@ -24,7 +26,9 @@ export async function GET() {
   };
 
   try {
-    const [trendingMovieRes, trendingTvRes, nowPlayingRes, onAirRes, topMovieRes] = await Promise.all([
+    const [movieGenresRes, tvGenresRes, trendingMovieRes, trendingTvRes, nowPlayingRes, onAirRes, topMovieRes] = await Promise.all([
+      fetch('https://api.themoviedb.org/3/genre/movie/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
+      fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
       fetch('https://api.themoviedb.org/3/trending/movie/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
       fetch('https://api.themoviedb.org/3/trending/tv/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
       fetch('https://api.themoviedb.org/3/movie/now_playing?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
@@ -32,18 +36,30 @@ export async function GET() {
       fetch('https://api.themoviedb.org/3/movie/top_rated?language=es-ES', { headers, signal: AbortSignal.timeout(8000) })
     ]);
 
+    const genreMap = new Map<number, string>();
+    if (movieGenresRes.ok) {
+      const data = await movieGenresRes.json();
+      (data.genres || []).forEach((g: any) => genreMap.set(g.id, g.name));
+    }
+    if (tvGenresRes.ok) {
+      const data = await tvGenresRes.json();
+      (data.genres || []).forEach((g: any) => genreMap.set(g.id, g.name));
+    }
+
     const formatItem = (item: any, typeOverride?: 'Película' | 'Serie') => {
       const title = item.title || item.name || 'Sin título';
       const type = typeOverride || (item.name || item.first_air_date ? 'Serie' : 'Película');
+      const itemGenres = (item.genre_ids || []).map((id: number) => genreMap.get(id)).filter(Boolean);
       return {
-        id: generateSlug(title),
+        id: generateItemId(item),
         tmdbId: item.id,
         title,
         type,
         poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
         banner: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : (item.poster_path ? `https://image.tmdb.org/t/p/w1280${item.poster_path}` : ''),
         synopsis: item.overview || 'Sinopsis no disponible.',
-        rating: typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : '4.8'
+        rating: typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : '0.0',
+        genres: itemGenres
       };
     };
 
@@ -75,7 +91,10 @@ export async function GET() {
     }
 
     const trending = [...trendingMovies.slice(0, 5), ...trendingTv.slice(0, 5)];
-    const movies = [...nowPlaying, ...topMovies];
+    
+    // Deduplicación estricta de películas
+    const allMoviesRaw = [...nowPlaying, ...topMovies];
+    const movies = Array.from(new Map(allMoviesRaw.map(m => [m.id, m])).values());
     const series = onAir;
 
     return NextResponse.json({
