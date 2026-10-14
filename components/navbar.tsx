@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 // Importamos los iconos necesarios
-import { Search, Menu, X, Play, Bell, User, Filter, Flame, Sparkles, Trophy, Crown, LogOut } from 'lucide-react';
-// Importamos supabase (asegúrate de que lib/supabase.ts exista y exporte 'supabase')
+import { Search, Menu, X, Play, Bell, User, Filter, Trophy, Crown, LogOut } from 'lucide-react';
+// Importamos supabase
 import { supabase } from '@/lib/supabase';
 
 interface NavbarProps {
@@ -17,9 +17,17 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [query, setQuery] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMoviesMode, setIsMoviesMode] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    const checkMode = () => {
+      if (typeof window !== 'undefined') {
+        setIsMoviesMode(window.location.pathname.startsWith('/movies'));
+      }
+    };
+    checkMode();
+
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
@@ -30,7 +38,8 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      router.push(`/search?q=${encodeURIComponent(query)}`);
+      const searchRoute = isMoviesMode ? `/movies/search?q=${encodeURIComponent(query)}` : `/search?q=${encodeURIComponent(query)}`;
+      router.push(searchRoute);
       setIsMobileMenuOpen(false);
     }
   };
@@ -42,19 +51,21 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
     router.push('/');
   };
 
-  // Clases dinámicas: SIEMPRE VIDRIO
   const navClasses = `fixed top-0 w-full z-50 transition-all duration-500 border-b ${
     (isScrolled || isMobileMenuOpen) 
-      ? "bg-black/60 backdrop-blur-xl border-white/10 shadow-lg" // Scroll: Vidrio más oscuro y sólido
-      : "bg-black/30 backdrop-blur-md border-white/5"            // Top: Vidrio más suave pero VISIBLE siempre
+      ? "bg-black/60 backdrop-blur-xl border-white/10 shadow-lg"
+      : "bg-black/30 backdrop-blur-md border-white/5"
   }`;
+
+  const homeHref = isMoviesMode ? "/movies/home" : "/home";
+  const browseHref = isMoviesMode ? "/movies/browse" : "/browse";
 
   return (
     <nav className={navClasses}>
       <div className="container mx-auto px-4 md:px-6 h-16 md:h-20 flex items-center justify-between gap-4">
         
-        {/* LOGO */}
-        <Link href="/home" className="flex items-center gap-2 md:gap-3 group flex-shrink-0">
+        {/* LOGO (Contextual: Anime o Series/Películas) */}
+        <Link href={homeHref} className="flex items-center gap-2 md:gap-3 group flex-shrink-0">
           <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg shadow-orange-900/30">
             <Play className="w-4 h-4 md:w-5 md:h-5 text-white fill-current" />
           </div>
@@ -63,7 +74,7 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
               Ani<span className="text-orange-500">Stream</span>
             </span>
             <span className="text-[0.6rem] md:text-[0.65rem] font-bold text-neutral-400 tracking-wider uppercase leading-tight group-hover:text-orange-400 transition-colors block">
-              JD
+              {isMoviesMode ? 'Cine & TV' : 'JD'}
             </span>
           </div>
         </Link>
@@ -73,19 +84,21 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
           <div className="flex items-center bg-neutral-900/80 p-1 rounded-xl border border-white/10">
             <Link 
               href="/home" 
-              className="px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all bg-orange-600 text-white shadow-md"
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all ${!isMoviesMode ? 'bg-orange-600 text-white shadow-md' : 'text-neutral-400 hover:text-white'}`}
             >
               Anime
             </Link>
             <Link 
               href="/movies/home" 
-              className="px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all text-neutral-400 hover:text-white"
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all ${isMoviesMode ? 'bg-orange-600 text-white shadow-md' : 'text-neutral-400 hover:text-white'}`}
             >
               Series y Películas
             </Link>
           </div>
 
-          <Link href="/browse" className="text-neutral-300 hover:text-orange-500 transition-colors text-base font-medium flex items-center gap-1.5"><Filter size={16} /> Explorar</Link>
+          <Link href={browseHref} className="text-neutral-300 hover:text-orange-500 transition-colors text-base font-medium flex items-center gap-1.5">
+            <Filter size={16} /> Explorar
+          </Link>
           {!isGuest && (
              <Link href="/favorites" className="text-neutral-300 hover:text-orange-500 transition-colors text-base font-medium flex items-center gap-1.5">Mi Lista</Link>
           )}
@@ -97,7 +110,7 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-orange-500 transition-colors" size={18} />
             <input 
               type="text" 
-              placeholder="Buscar anime..." 
+              placeholder={isMoviesMode ? "Buscar películas o series..." : "Buscar anime..."} 
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full bg-neutral-900/70 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-orange-500 focus:bg-neutral-900 transition-all placeholder:text-neutral-500"
@@ -176,23 +189,24 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
                <Link 
                  href="/home" 
                  onClick={() => setIsMobileMenuOpen(false)}
-                 className={`py-3 rounded-xl text-center font-bold text-sm transition-all ${!window.location.pathname.startsWith('/movies') ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400'}`}
+                 className={`py-3 rounded-xl text-center font-bold text-sm transition-all ${!isMoviesMode ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400'}`}
                >
                  Anime
                </Link>
                <Link 
                  href="/movies/home" 
                  onClick={() => setIsMobileMenuOpen(false)}
-                 className={`py-3 rounded-xl text-center font-bold text-sm transition-all ${window.location.pathname.startsWith('/movies') ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400'}`}
+                 className={`py-3 rounded-xl text-center font-bold text-sm transition-all ${isMoviesMode ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400'}`}
                >
                  Series y Películas
                </Link>
              </div>
+
             <form onSubmit={handleSearch} className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
               <input 
                 type="text" 
-                placeholder="¿Qué quieres ver hoy?" 
+                placeholder={isMoviesMode ? "¿Qué película o serie quieres ver?" : "¿Qué anime quieres ver?"} 
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 autoFocus
@@ -201,17 +215,65 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
             </form>
 
             <div className="grid gap-2">
-              <MobileLink href="/home" onClick={() => setIsMobileMenuOpen(false)} icon={<Play size={20}/>}>Inicio</MobileLink>
-              <MobileLink href="/browse" onClick={() => setIsMobileMenuOpen(false)} icon={<Filter size={20}/>}>Explorar Géneros</MobileLink>
+              <Link 
+                href={homeHref} 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-4 p-4 text-white hover:bg-white/10 rounded-2xl transition-all font-medium text-lg"
+              >
+                <div className="w-10 h-10 rounded-full bg-orange-600/20 text-orange-400 flex items-center justify-center">
+                  <Play size={20} className="fill-current"/>
+                </div>
+                Inicio ({isMoviesMode ? 'Series y Películas' : 'Anime'})
+              </Link>
+
+              <Link 
+                href={browseHref} 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center gap-4 p-4 text-white hover:bg-white/10 rounded-2xl transition-all font-medium text-lg"
+              >
+                <div className="w-10 h-10 rounded-full bg-white/5 text-white flex items-center justify-center">
+                  <Filter size={20}/>
+                </div>
+                Explorar Géneros
+              </Link>
+
               {!isGuest && (
                  <>
-                   <MobileLink href="/favorites" onClick={() => setIsMobileMenuOpen(false)} icon={<Trophy size={20} className="text-purple-500"/>}>Mi Lista</MobileLink>
-                   <MobileLink href="/profile" onClick={() => setIsMobileMenuOpen(false)} icon={<User size={20} className="text-orange-500"/>}>Mi Perfil</MobileLink>
+                   <Link 
+                     href="/favorites" 
+                     onClick={() => setIsMobileMenuOpen(false)}
+                     className="flex items-center gap-4 p-4 text-white hover:bg-white/10 rounded-2xl transition-all font-medium text-lg"
+                   >
+                     <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                       <Trophy size={20}/>
+                     </div>
+                     Mi Lista
+                   </Link>
+                   <Link 
+                     href="/profile" 
+                     onClick={() => setIsMobileMenuOpen(false)}
+                     className="flex items-center gap-4 p-4 text-white hover:bg-white/10 rounded-2xl transition-all font-medium text-lg"
+                   >
+                     <div className="w-10 h-10 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center">
+                       <User size={20}/>
+                     </div>
+                     Mi Perfil
+                   </Link>
                  </>
               )}
+
               <div className="my-4 border-t border-white/10"></div>
               {isGuest ? (
-                 <MobileLink href="/" onClick={() => setIsMobileMenuOpen(false)} icon={<Crown size={20} className="text-orange-500"/>}>Registrarse / Entrar</MobileLink>
+                 <Link 
+                   href="/" 
+                   onClick={() => setIsMobileMenuOpen(false)}
+                   className="flex items-center gap-4 p-4 text-white hover:bg-white/10 rounded-2xl transition-all font-medium text-lg"
+                 >
+                   <div className="w-10 h-10 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center">
+                     <Crown size={20}/>
+                   </div>
+                   Registrarse / Entrar
+                 </Link>
               ) : (
                  <button 
                   onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
@@ -230,18 +292,3 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
     </nav>
   );
 };
-
-function MobileLink({ href, onClick, children, icon }: any) {
-  return (
-    <Link 
-      href={href} 
-      onClick={onClick}
-      className="flex items-center gap-4 p-4 text-neutral-300 hover:text-white hover:bg-white/10 rounded-2xl transition-all font-medium active:scale-95 text-lg"
-    >
-      <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-        {icon}
-      </div>
-      {children}
-    </Link>
-  );
-}

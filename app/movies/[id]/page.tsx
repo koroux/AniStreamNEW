@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
 import { Play, Plus, Check, Loader2, Star, ArrowLeft, Tv, Film } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -85,6 +86,14 @@ export default function MovieDetailPage() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pb-24">
       <Navbar user={user} isGuest={!user} />
+
+      {!isPlaying && (
+        <div className="container mx-auto px-6 pt-24 pb-2">
+          <Link href="/movies/home" className="inline-flex items-center gap-2 text-neutral-400 hover:text-white transition-colors text-sm font-semibold bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl backdrop-blur-md border border-white/5">
+            <ArrowLeft size={16} /> Volver a Series y Películas
+          </Link>
+        </div>
+      )}
 
       {/* REPRODUCTOR O BANNER */}
       {isPlaying ? (
