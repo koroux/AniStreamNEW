@@ -11,7 +11,7 @@ function generateItemId(item: any): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
-  return `${item.id}-${slug}`; // 238-el-padrino
+  return slug ? `${item.id}-${slug}` : `${item.id}`;
 }
 
 export async function GET(request: Request) {

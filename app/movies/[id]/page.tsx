@@ -16,6 +16,7 @@ export default function MovieDetailPage() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [selectedEp, setSelectedEp] = useState<number>(1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [serverIndex, setServerIndex] = useState<number>(0);
@@ -39,6 +40,12 @@ export default function MovieDetailPage() {
         const res = await fetch(`/api/movies/info?id=${id}`);
         const data = await res.json();
         setItem(data);
+        if (data?.seasons && data.seasons.length > 0) {
+          setSelectedSeason(data.seasons[0].seasonNumber);
+          if (data.seasons[0].episodes && data.seasons[0].episodes.length > 0) {
+            setSelectedEp(data.seasons[0].episodes[0].episodeNumber);
+          }
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -125,7 +132,7 @@ export default function MovieDetailPage() {
             </button>
 
             <span className="text-sm font-bold text-neutral-200 truncate">
-              {item.title} {isSerie ? `- Ep. ${selectedEp}` : ''}
+              {item.title} {isSerie ? `- T${selectedSeason} Ep. ${selectedEp}` : ''}
             </span>
 
             {/* SELECTOR DE SERVIDORES LIMPIOS */}
@@ -207,7 +214,7 @@ export default function MovieDetailPage() {
                   className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-900/40"
                 >
                   <Play className="fill-current" size={20} />
-                  <span>Reproducir {isSerie ? `Ep. ${selectedEp}` : ''}</span>
+                  <span>Reproducir {isSerie ? `T${selectedSeason} Ep. ${selectedEp}` : ''}</span>
                 </button>
 
                 <button 
@@ -232,27 +239,110 @@ export default function MovieDetailPage() {
         </div>
       )}
 
-      {/* EPISODIOS O CAPÍTULOS (SI ES SERIE) */}
-      {isSerie && item.episodes && !isPlaying && (
+      {/* EPISODIOS Y TEMPORADAS REALES (SI ES SERIE) */}
+      {isSerie && item?.seasons && item.seasons.length > 0 && !isPlaying && (
         <div className="container mx-auto px-6 mt-12">
-          <h2 className="text-2xl font-black text-white mb-6">Episodios</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {item.episodes.map((ep: any) => (
-              <div 
-                key={ep.number}
-                onClick={() => { setSelectedEp(ep.number); setIsPlaying(true); }}
-                className={`flex items-center gap-4 p-4 rounded-2xl bg-neutral-900 border transition-all cursor-pointer group ${selectedEp === ep.number ? 'border-orange-500 bg-neutral-800' : 'border-white/5 hover:border-white/20'}`}
-              >
-                <div className="w-12 h-12 rounded-xl bg-orange-600/20 group-hover:bg-orange-600 text-orange-400 group-hover:text-white flex items-center justify-center font-bold transition-all">
-                  <Play size={20} className="fill-current" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs text-neutral-400 font-semibold block">Episodio {ep.number}</span>
-                  <h4 className="text-sm font-bold text-white truncate">{ep.title}</h4>
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+            <h2 className="text-2xl font-black text-white flex items-center gap-2">
+              <Tv className="text-orange-500" size={24} />
+              Episodios
+            </h2>
+
+            {/* SELECTOR HORIZONTAL DE TEMPORADAS */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+              {item.seasons.map((s: any) => (
+                <button
+                  key={s.seasonNumber}
+                  onClick={() => setSelectedSeason(s.seasonNumber)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                    selectedSeason === s.seasonNumber
+                      ? 'bg-orange-600 text-white shadow-lg'
+                      : 'bg-neutral-900 text-neutral-400 hover:text-white border border-white/5 hover:border-white/20'
+                  }`}
+                >
+                  {s.name || `Temporada ${s.seasonNumber}`}
+                </button>
+              ))}
+            </div>
           </div>
+
+          {/* GRID DE EPISODIOS DE LA TEMPORADA SELECCIONADA */}
+          {(() => {
+            const currentSeason = item.seasons.find((s: any) => s.seasonNumber === selectedSeason) || item.seasons[0];
+            const episodeList = currentSeason?.episodes || [];
+
+            if (episodeList.length === 0) {
+              return (
+                <div className="text-neutral-500 text-sm py-8 text-center bg-neutral-900/50 rounded-2xl border border-white/5">
+                  No hay episodios disponibles para esta temporada.
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {episodeList.map((ep: any) => (
+                  <div
+                    key={ep.episodeNumber}
+                    onClick={() => {
+                      setSelectedEp(ep.episodeNumber);
+                      setSelectedSeason(ep.seasonNumber);
+                      setIsPlaying(true);
+                    }}
+                    className={`group flex flex-col bg-neutral-900/90 rounded-2xl overflow-hidden border transition-all cursor-pointer hover:-translate-y-1 shadow-lg ${
+                      selectedSeason === ep.seasonNumber && selectedEp === ep.episodeNumber
+                        ? 'border-orange-500 bg-neutral-800'
+                        : 'border-white/5 hover:border-white/20'
+                    }`}
+                  >
+                    {/* Imagen still con placeholder neutro si no hay imagen */}
+                    <div className="relative aspect-video w-full overflow-hidden bg-neutral-950 flex items-center justify-center">
+                      {ep.still ? (
+                        <img
+                          src={ep.still}
+                          alt={ep.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-neutral-900 text-neutral-600">
+                          <Film size={32} />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/40 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-orange-600/90 text-white flex items-center justify-center transform group-hover:scale-110 transition-transform shadow-md">
+                          <Play size={18} className="fill-current ml-0.5" />
+                        </div>
+                      </div>
+                      {ep.runtime > 0 && (
+                        <span className="absolute bottom-2 right-2 bg-black/80 backdrop-blur-md px-2 py-0.5 rounded text-[11px] font-semibold text-neutral-300">
+                          {ep.runtime} min
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Contenido / Metadatos */}
+                    <div className="p-4 flex flex-col flex-1 justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-1 text-xs text-orange-400 font-bold">
+                          <span>Episodio {ep.episodeNumber}</span>
+                          {ep.airDate && <span className="text-neutral-500 text-[11px]">{ep.airDate}</span>}
+                        </div>
+                        <h4 className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors line-clamp-1 mb-1.5">
+                          {ep.title}
+                        </h4>
+                        {ep.synopsis && (
+                          <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed">
+                            {ep.synopsis}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
     </main>

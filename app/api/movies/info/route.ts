@@ -26,7 +26,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<{
     'Accept': 'application/json'
   };
 
-  const match = idOrSlug.match(/^(\d+)-/);
+  const match = idOrSlug.match(/^(\d+)(?:-|$)/);
   const directTmdbId = match ? parseInt(match[1], 10) : null;
 
   try {
@@ -300,7 +300,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'ID o slug requerido' }, { status: 400 });
   }
 
-  let tmdbMeta = null;
+  let tmdbMeta: any = null;
   try {
     tmdbMeta = await fetchTMDBMeta(id);
   } catch (err) {
@@ -335,18 +335,66 @@ export async function GET(request: Request) {
     console.error('Error in info API route:', err);
   }
 
-  const episodes = isSerie ? [
-    { number: 1, title: 'Episodio 1' },
-    { number: 2, title: 'Episodio 2' },
-    { number: 3, title: 'Episodio 3' },
-    { number: 4, title: 'Episodio 4' },
-    { number: 5, title: 'Episodio 5' },
-    { number: 6, title: 'Episodio 6' },
-    { number: 7, title: 'Episodio 7' },
-    { number: 8, title: 'Episodio 8' }
-  ] : [{ number: 1, title: 'Película Completa (Español Latino)' }];
+  let seasonsData: any[] = [];
+  if (isSerie && tmdbMeta.tmdbId) {
+    try {
+      const token = process.env.TMDB_READ_TOKEN;
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      };
 
-  return NextResponse.json({
+      const tvRes = await fetch(`https://api.themoviedb.org/3/tv/${tmdbMeta.tmdbId}?language=es-ES`, {
+        headers,
+        signal: AbortSignal.timeout(8000)
+      });
+
+      if (tvRes.ok) {
+        const tvJson = await tvRes.json();
+        const validSeasons = (tvJson.seasons || []).filter(
+          (s: any) => s.season_number > 0 && s.episode_count > 0
+        );
+
+        const seasonPromises = validSeasons.map(async (s: any) => {
+          try {
+            const sRes = await fetch(
+              `https://api.themoviedb.org/3/tv/${tmdbMeta.tmdbId}/season/${s.season_number}?language=es-ES`,
+              { headers, signal: AbortSignal.timeout(8000) }
+            );
+
+            if (!sRes.ok) return null;
+            const sJson = await sRes.json();
+
+            return {
+              seasonNumber: s.season_number,
+              name: s.name || `Temporada ${s.season_number}`,
+              episodeCount: s.episode_count,
+              poster: s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : '',
+              episodes: (sJson.episodes || []).map((ep: any) => ({
+                episodeNumber: ep.episode_number,
+                seasonNumber: s.season_number,
+                title: ep.name || `Episodio ${ep.episode_number}`,
+                synopsis: ep.overview || '',
+                still: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : '',
+                runtime: ep.runtime || 0,
+                airDate: ep.air_date || ''
+              }))
+            };
+          } catch (seasonErr) {
+            console.error(`Error fetching season ${s.season_number}:`, seasonErr);
+            return null;
+          }
+        });
+
+        const resolvedSeasons = await Promise.all(seasonPromises);
+        seasonsData = resolvedSeasons.filter(Boolean);
+      }
+    } catch (seriesErr) {
+      console.error('Error fetching series seasons from TMDB:', seriesErr);
+    }
+  }
+
+  const responsePayload: any = {
     id,
     title: tmdbMeta.title,
     poster: tmdbMeta.poster,
@@ -355,7 +403,12 @@ export async function GET(request: Request) {
     rating: tmdbMeta.rating,
     genres: tmdbMeta.genres,
     type: tmdbMeta.type,
-    servers: servers.map(s => ({ name: s.nombre, url: s.url })),
-    episodes
-  });
+    servers: servers.map(s => ({ name: s.nombre, url: s.url }))
+  };
+
+  if (isSerie) {
+    responsePayload.seasons = seasonsData;
+  }
+
+  return NextResponse.json(responsePayload);
 }
