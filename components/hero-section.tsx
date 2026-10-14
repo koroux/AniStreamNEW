@@ -64,7 +64,7 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
           user_id: user.id,
           anime_id: anime.id,
           title: anime.title,
-          poster: anime.poster || anime.image,
+          poster: `https://tioanime.com/uploads/thumbs/${anime.id}.jpg`,
         });
       if (!error) setIsFavorite(true);
     }
@@ -76,16 +76,16 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
   return (
     <div className="relative w-full h-[85vh] md:h-[80vh] flex items-center overflow-hidden bg-black">
       
-      {/* 1. IMAGEN DE FONDO ESTILO NETFLIX (FULL WIDTH CON ZOOM SUTIL) */}
-      <div className={`absolute inset-0 select-none overflow-hidden transition-opacity duration-700 ${isFading ? 'opacity-0 scale-105' : 'opacity-85 scale-100'}`}>
+      {/* 1. IMAGEN DE FONDO (TRANSICIÓN SUAVE DE DESVANECIMIENTO) */}
+      <div className={`absolute inset-0 select-none overflow-hidden transition-opacity duration-500 ${isFading ? 'opacity-0' : 'opacity-90'}`}>
         <img 
           src={bgImage} 
           alt={anime.title}
-          className="w-full h-full object-cover object-center transform scale-105 transition-transform duration-1000"
+          className="w-full h-full object-cover object-center"
         />
       </div>
 
-      {/* 2. CAPAS DE DEGRADADO CINEMATOGRÁFICO (VIGNETTE & GRADIENTS) */}
+      {/* 2. CAPAS DE DEGRADADO CINEMATOGRÁFICO */}
       <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/50 to-black/30 z-10"></div>
       <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/70 to-transparent z-10"></div>
       <div className="absolute inset-0 bg-black/20 z-10"></div>
@@ -93,8 +93,8 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
       {/* 3. CONTENIDO ESTILO NETFLIX */}
       <div className="relative container mx-auto px-6 md:px-12 w-full flex flex-col md:flex-row items-end md:items-center justify-between mt-20 z-20">
         
-        <div className={`max-w-2xl space-y-3 md:space-y-4 transition-all duration-500 ${isFading ? 'translate-y-4 opacity-0' : 'translate-y-0 opacity-100'}`}>
-          <div className="flex items-center gap-2.5">
+        <div className={`max-w-2xl space-y-3 md:space-y-4 transition-opacity duration-500 ${isFading ? 'opacity-0' : 'opacity-100'}`}>
+          <div className="flex items-center justify-center md:justify-start gap-2.5">
             <span className="bg-orange-600 text-white text-[10px] md:text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider shadow-lg shadow-orange-950/50">
               🔥 Destacado en Tendencia
             </span>
@@ -103,13 +103,13 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
             </span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-2xl text-white">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-black leading-tight tracking-tight drop-shadow-2xl text-white text-center md:text-left">
             {anime.title}
           </h1>
           
-          {/* GÉNEROS SEPARADOS POR PUNTOS (ESTILO NETFLIX DE LA IMAGEN DE EJEMPLO) */}
+          {/* GÉNEROS SEPARADOS POR PUNTOS */}
           {anime.genres && anime.genres.length > 0 && (
-            <div className="flex items-center gap-2 text-xs md:text-sm text-gray-300 font-semibold flex-wrap">
+            <div className="flex items-center justify-center md:justify-start gap-2 text-xs md:text-sm text-gray-300 font-semibold flex-wrap">
               {anime.genres.slice(0, 5).map((g: string, i: number) => (
                 <span key={g} className="flex items-center">
                   {g} {i < Math.min(anime.genres.length, 5) - 1 && <span className="mx-2 text-orange-500">•</span>}
@@ -118,12 +118,12 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
             </div>
           )}
           
-          <p className="text-gray-300 text-sm md:text-base line-clamp-2 max-w-xl drop-shadow-lg font-normal leading-relaxed pt-1">
+          <p className="text-gray-300 text-sm md:text-base line-clamp-2 max-w-xl drop-shadow-lg font-normal leading-relaxed pt-1 text-center md:text-left mx-auto md:mx-0">
             {anime.description || "Disfruta de esta increíble serie en HD sin interrupciones con AniStreamJD."}
           </p>
           
-          {/* BOTONES DE ACCIÓN NETFLIX (MI LISTA - VER AHORA - INFO) */}
-          <div className="flex items-center gap-4 pt-3 flex-wrap">
+          {/* BOTONES DE ACCIÓN (CENTRADOS EN MÓVIL, IZQUIERDA EN DESKTOP) */}
+          <div className="flex items-center justify-center md:justify-start gap-4 pt-3 flex-wrap w-full md:w-auto">
             <button 
               onClick={toggleFavorite}
               disabled={loadingFav}
@@ -160,20 +160,30 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
           </div>
         </div>
 
-        {/* 4. INDICADORES DE PAGINACIÓN / ROTACIÓN (DERECHA) */}
+        {/* 4. INDICADORES DE PREVISUALIZACIÓN / CÍRCULOS MÁS GRANDES CON TÍTULOS */}
         {trendingList.length > 1 && (
-          <div className="hidden lg:flex flex-col items-center justify-center gap-2 z-30 absolute right-8 bottom-12 bg-black/40 backdrop-blur-md px-3 py-2 rounded-full border border-white/10 shadow-2xl">
+          <div className="hidden lg:flex flex-col items-end justify-center gap-2.5 z-30 absolute right-8 bottom-12 bg-black/60 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/10 shadow-2xl">
+            <span className="text-[10px] uppercase font-bold tracking-widest text-neutral-400 mb-1">Destacados</span>
             {trendingList.slice(0, 5).map((item, idx) => (
               <button
                 key={item.id}
                 onClick={() => onSelectIndex && onSelectIndex(idx)}
-                className={`transition-all rounded-full ${
+                className={`group flex items-center gap-2.5 transition-all py-1.5 px-2 rounded-xl ${
                   currentIndex === idx 
-                    ? 'w-6 h-2 bg-orange-500' 
-                    : 'w-2 h-2 bg-white/40 hover:bg-white'
+                    ? 'bg-white/15 border border-orange-500/50 shadow-md' 
+                    : 'hover:bg-white/5'
                 }`}
                 title={item.title}
-              />
+              >
+                <span className={`text-xs font-bold transition-colors max-w-[130px] truncate ${currentIndex === idx ? 'text-orange-400' : 'text-neutral-400 group-hover:text-white'}`}>
+                  {item.title}
+                </span>
+                <span className={`transition-all rounded-full ${
+                  currentIndex === idx 
+                    ? 'w-7 h-3.5 bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]' 
+                    : 'w-3.5 h-3.5 bg-white/40 hover:bg-white'
+                }`} />
+              </button>
             ))}
           </div>
         )}

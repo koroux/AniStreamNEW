@@ -33,8 +33,15 @@ export default function FavoritesPage() {
 
       if (error) {
         console.error('Error cargando favoritos:', error);
-      } else {
-        setFavorites(data || []);
+      } else if (data) {
+        const sanitized = await Promise.all(data.map(async (fav) => {
+          const p = `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`;
+          if (fav.poster !== p) {
+            await supabase.from('user_favorites').update({ poster: p }).eq('user_id', parsedUser.id).eq('anime_id', fav.anime_id);
+          }
+          return { ...fav, poster: p };
+        }));
+        setFavorites(sanitized);
       }
       
       setLoading(false);

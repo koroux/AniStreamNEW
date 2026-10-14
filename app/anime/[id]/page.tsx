@@ -259,7 +259,7 @@ export default function AnimeDetail() {
           user_id: user.id,
           anime_id: id,
           title: info?.title,
-          poster: info?.poster,
+          poster: `https://tioanime.com/uploads/thumbs/${id}.jpg`,
         });
 
       if (!error) setIsFavorite(true);

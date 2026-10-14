@@ -34,10 +34,7 @@ export async function GET(request: Request) {
       const id = href.replace('/anime/', '').replace(/^\//, '');
       const title = $el.find('.title').text().trim();
       
-      let poster = $el.find('img').attr('src') || '';
-      if (poster && !poster.startsWith('http')) {
-        poster = 'https://tioanime.com' + poster;
-      }
+      let poster = `https://tioanime.com/uploads/thumbs/${id}.jpg`;
       
       const type = $el.find('.anime-type-peli').text().trim() || 'TV';
 

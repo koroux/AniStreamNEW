@@ -90,13 +90,13 @@ export default function ProfilePage() {
           }
 
           if (favsDataRes.data) {
-            const sanitizedFavs = favsDataRes.data.map(fav => {
-              let p = fav.poster;
-              if (!p || p.includes('logo') || p.includes('banner')) {
-                p = `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`;
+            const sanitizedFavs = await Promise.all(favsDataRes.data.map(async (fav) => {
+              const p = `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`;
+              if (fav.poster !== p) {
+                await supabase.from('user_favorites').update({ poster: p }).eq('user_id', currentUser.id).eq('anime_id', fav.anime_id);
               }
               return { ...fav, poster: p };
-            });
+            }));
             setFavorites(sanitizedFavs);
           }
         }

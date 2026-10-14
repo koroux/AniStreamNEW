@@ -46,13 +46,7 @@ export async function GET(request: Request) {
        return NextResponse.json({ error: 'Anime no encontrado' }, { status: 404 });
     }
 
-    let poster = $('.thumb img').attr('src') || $('.portada img').attr('src') || $('figure img').not('[src*="logo"]').attr('src') || '';
-    if (poster && !poster.startsWith('http')) {
-      poster = `https://tioanime.com${poster}`;
-    }
-    if (!poster || poster.includes('logo') || poster.includes('banner')) {
-      poster = `https://tioanime.com/uploads/thumbs/${id}.jpg`;
-    }
+    let poster = `https://tioanime.com/uploads/thumbs/${id}.jpg`;
 
     const description = $('p.sinopsis').text().trim();
     const type = $('.anime-type-peli').text().trim() || 'TV';
