@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown, ChevronLeft, ChevronRight, Moon, Sun, Search as SearchIcon, ShieldAlert } from 'lucide-react';
+import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown, ChevronLeft, ChevronRight, Moon, Sun, Search as SearchIcon, ShieldAlert, Maximize } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
 import { NativeVideoPlayer } from '@/components/native-video-player';
@@ -40,6 +40,28 @@ export default function AnimeDetail() {
   // --- TEMPORADAS ---
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [isSeasonMenuOpen, setIsSeasonMenuOpen] = useState(false);
+
+  // --- REFERENCIA AL REPRODUCTOR PARA PANTALLA COMPLETA ---
+  const playerContainerRef = useRef<HTMLDivElement>(null);
+
+  const toggleFullscreen = () => {
+    const el = playerContainerRef.current as any;
+    if (!el) return;
+
+    if (!document.fullscreenElement) {
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      } else if (el.msRequestFullscreen) {
+        el.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
 
   // 1. CARGAR INFO ANIME
   useEffect(() => {
@@ -270,7 +292,7 @@ export default function AnimeDetail() {
               </div>
             )}
 
-            <div className="relative w-full aspect-video bg-black shadow-2xl overflow-hidden">
+            <div ref={playerContainerRef} className="relative w-full aspect-video bg-black shadow-2xl overflow-hidden group/player">
               {loadingVideo ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0a]">
                   <Loader2 className="animate-spin text-orange-500 mb-4" size={42} />
@@ -281,19 +303,14 @@ export default function AnimeDetail() {
                   <NativeVideoPlayer src={currentVideoUrl} poster={info?.poster} />
                 ) : (
                   <div className="relative w-full h-full">
-                    <div 
-                      onClick={() => {
-                        setShieldActive(true);
-                        setTimeout(() => setShieldActive(false), 800);
-                      }}
-                      className={`absolute inset-0 z-30 cursor-pointer transition-colors ${shieldActive ? 'bg-black/20' : 'bg-transparent pointer-events-none'}`}
-                      title="Haz clic si hay publicidad"
-                    />
                     <iframe 
                       src={currentVideoUrl} 
                       className="w-full h-full relative z-20 border-0"
                       allowFullScreen
-                      allow="autoplay; encrypted-media; fullscreen"
+                      // @ts-ignore
+                      webkitallowfullscreen="true"
+                      mozallowfullscreen="true"
+                      allow="autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock"
                       referrerPolicy="no-referrer"
                     />
                   </div>
@@ -381,29 +398,40 @@ export default function AnimeDetail() {
                   </button>
                 </div>
 
-                {/* BOTÓN MODO CINE */}
-                <button
-                  onClick={() => setIsCinemaMode(!isCinemaMode)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-                    isCinemaMode
-                      ? "bg-orange-600/20 text-orange-400 border-orange-500/40"
-                      : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-transparent hover:text-white"
-                  }`}
-                  title="Activa el modo cine para enfocar la pantalla en el reproductor"
-                >
-                  {isCinemaMode ? <Sun size={14} className="text-orange-400" /> : <Moon size={14} />}
-                  <span className="hidden md:inline">{isCinemaMode ? "Desactivar Cine" : "Modo Cine"}</span>
-                </button>
+                {/* BOTÓN PANTALLA COMPLETA & MODO CINE */}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleFullscreen}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-neutral-800 hover:bg-neutral-700 text-neutral-200 hover:text-white transition-all active:scale-95 border border-white/5"
+                    title="Ver en pantalla completa"
+                  >
+                    <Maximize size={14} className="text-orange-500" />
+                    <span>Pantalla Completa</span>
+                  </button>
+
+                  <button
+                    onClick={() => setIsCinemaMode(!isCinemaMode)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                      isCinemaMode
+                        ? "bg-orange-600/20 text-orange-400 border-orange-500/40"
+                        : "bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-white/5 hover:text-white"
+                    }`}
+                    title="Activa el modo cine para enfocar la pantalla en el reproductor"
+                  >
+                    {isCinemaMode ? <Sun size={14} className="text-orange-400" /> : <Moon size={14} />}
+                    <span className="hidden sm:inline">{isCinemaMode ? "Desactivar Cine" : "Modo Cine"}</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {/* AVISO PERMANENTE SUTIL: RECOMENDACIÓN DE BRAVE */}
-            <div className="bg-[#0f0f0f] border-b border-white/5 px-4 py-2 flex items-center justify-between gap-3 text-[11px] md:text-xs">
-              <div className="flex items-center gap-2 text-neutral-400 min-w-0">
-                <ShieldAlert size={14} className="text-orange-500 flex-shrink-0" />
-                <p className="truncate sm:whitespace-normal">
-                  <span className="text-neutral-300 font-semibold">Consejo de seguridad:</span> Usa el navegador{' '}
-                  <strong className="text-orange-400">Brave</strong> para evitar anuncios invasivos o imágenes emergentes no deseadas de los servidores externos.
+            {/* AVISO PERMANENTE SUTIL: RECOMENDACIÓN DE BRAVE (ADAPTADO A MÓVIL) */}
+            <div className="bg-[#0f0f0f] border-b border-white/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+              <div className="flex items-start gap-2.5 text-neutral-300">
+                <ShieldAlert size={16} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="leading-snug text-neutral-300 text-[11px] sm:text-xs">
+                  <strong className="text-orange-400 font-bold">Consejo de seguridad:</strong> Se recomienda usar el navegador{' '}
+                  <strong className="text-white font-bold">Brave</strong> para bloquear anuncios emergentes o imágenes invasivas de los servidores.
                 </p>
               </div>
 
@@ -411,9 +439,10 @@ export default function AnimeDetail() {
                 href="https://play.google.com/store/apps/details?id=com.brave.browser"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-orange-500 hover:text-orange-400 font-bold uppercase tracking-wider flex-shrink-0 text-[10px] md:text-[11px] hover:underline"
+                className="inline-flex items-center gap-1 self-start sm:self-auto text-orange-400 hover:text-orange-300 font-bold uppercase tracking-wider text-[11px] pl-6 sm:pl-0 hover:underline"
               >
-                Obtener Brave &rarr;
+                <span>Descargar Brave</span>
+                <span aria-hidden="true">&rarr;</span>
               </a>
             </div>
 
