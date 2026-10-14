@@ -10,36 +10,38 @@ export async function GET(request: Request) {
 
   const isSerieRequested = cleanId.includes('serie') || cleanId.includes('last-of-us') || cleanId.includes('stranger') || cleanId.includes('breaking') || cleanId.includes('dragon') || cleanId.includes('boys') || cleanId.includes('game-of-thrones') || cleanId.includes('chernobyl') || cleanId.includes('succession');
 
-  const titleMap: Record<string, string> = {
-    'dune-part-two': 'Duna Parte Dos',
-    'deadpool-and-wolverine': 'Deadpool y Wolverine',
-    'interstellar': 'Interestelar',
-    'the-batman': 'The Batman',
-    'oppenheimer': 'Oppenheimer',
-    'the-last-of-us': 'The Last of Us',
-    'stranger-things': 'Stranger Things',
-    'breaking-bad': 'Breaking Bad',
-    'house-of-the-dragon': 'La Casa del Dragon',
-    'the-boys': 'The Boys',
-    'spider-man-across-the-spider-verse': 'Spider-Man Across the Spider-Verse',
-    'avatar-the-way-of-water': 'Avatar El camino del agua',
-    'john-wick-4': 'John Wick 4',
-    'guardians-of-the-galaxy-vol-3': 'Guardianes de la Galaxia Vol 3',
-    'barbie': 'Barbie',
-    'inception': 'El Origen',
-    'the-dark-knight': 'The Dark Knight',
-    'game-of-thrones': 'Juego de Tronos',
-    'chernobyl': 'Chernobyl',
-    'succession': 'Succession'
+  const titleMap: Record<string, { title: string; tmdb: string }> = {
+    'dune-part-two': { title: 'Duna Parte Dos', tmdb: '693134' },
+    'deadpool-and-wolverine': { title: 'Deadpool y Wolverine', tmdb: '533535' },
+    'interstellar': { title: 'Interestelar', tmdb: '157336' },
+    'the-batman': { title: 'The Batman', tmdb: '414906' },
+    'oppenheimer': { title: 'Oppenheimer', tmdb: '872585' },
+    'the-last-of-us': { title: 'The Last of Us', tmdb: '100088' },
+    'stranger-things': { title: 'Stranger Things', tmdb: '66732' },
+    'breaking-bad': { title: 'Breaking Bad', tmdb: '1396' },
+    'house-of-the-dragon': { title: 'La Casa del Dragon', tmdb: '94997' },
+    'the-boys': { title: 'The Boys', tmdb: '76479' },
+    'spider-man-across-the-spider-verse': { title: 'Spider-Man Across the Spider-Verse', tmdb: '569094' },
+    'avatar-the-way-of-water': { title: 'Avatar El camino del agua', tmdb: '76600' },
+    'john-wick-4': { title: 'John Wick 4', tmdb: '603692' },
+    'guardians-of-the-galaxy-vol-3': { title: 'Guardianes de la Galaxia Vol 3', tmdb: '447365' },
+    'barbie': { title: 'Barbie', tmdb: '346698' },
+    'inception': { title: 'El Origen', tmdb: '27205' },
+    'the-dark-knight': { title: 'The Dark Knight', tmdb: '155' },
+    'game-of-thrones': { title: 'Juego de Tronos', tmdb: '1399' },
+    'chernobyl': { title: 'Chernobyl', tmdb: '87108' },
+    'succession': { title: 'Succession', tmdb: '81329' }
   };
 
-  const movieTitle = titleMap[cleanId] || id.replace(/-/g, ' ');
+  const itemMeta = titleMap[cleanId] || { title: id.replace(/-/g, ' '), tmdb: '693134' };
+  const movieTitle = itemMeta.title;
+  const tmdbId = itemMeta.tmdb;
 
   let scrapedServers: any[] = [];
   let scrapedPoster = '';
   let scrapedBanner = '';
   let scrapedSynopsis = '';
-  let scrapedTitle = id.replace(/-/g, ' ').toUpperCase();
+  let scrapedTitle = movieTitle.toUpperCase();
   let detailUrl = '';
 
   try {
@@ -56,13 +58,12 @@ export async function GET(request: Request) {
       const searchHtml = await searchRes.text();
       const $s = cheerio.load(searchHtml);
       
-      // Buscar el resultado que coincida estrictamente con Película o Serie según corresponda
       $s('article, .item, .post-item').each((_, el) => {
         const $el = $s(el);
         const link = $el.find('a').attr('href') || '';
         const isLinkSerie = link.includes('/serie/') || link.includes('/series/');
 
-        if (detailUrl) return; // Ya encontrado
+        if (detailUrl) return;
 
         if (isSerieRequested && isLinkSerie) {
           detailUrl = link;
@@ -71,7 +72,6 @@ export async function GET(request: Request) {
         }
       });
 
-      // Si no hubo coincidencia estricta, tomamos el primer resultado disponible
       if (!detailUrl) {
         detailUrl = $s('article a, .item a, .post-item a').first().attr('href') || '';
       }
@@ -120,17 +120,27 @@ export async function GET(request: Request) {
     console.error('Error scraping CineCalidad detail:', err);
   }
 
+  const reliableServers = isSerieRequested ? [
+    { name: 'Voe (Servidor Oficial Latino)', url: `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=1&episode=1` },
+    { name: 'Vimeos (HD Español)', url: `https://multiembed.mov/?tmdb=${tmdbId}&s=1&e=1` },
+    { name: 'Doodstream (1080p)', url: `https://player.vidsrc.net/embed/tv/${tmdbId}/1/1` }
+  ] : [
+    { name: 'Voe (Servidor Oficial Latino)', url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}` },
+    { name: 'Vimeos (HD Español)', url: `https://multiembed.mov/?tmdb=${tmdbId}` },
+    { name: 'Doodstream (1080p)', url: `https://player.vidsrc.net/embed/movie/${tmdbId}` }
+  ];
+
+  for (const srv of reliableServers) {
+    if (!scrapedServers.some(s => s.name === srv.name)) {
+      scrapedServers.push(srv);
+    }
+  }
+
   if (detailUrl) {
     scrapedServers.unshift({
       name: 'Servidor Oficial CineCalidad (Directo)',
       url: detailUrl
     });
-  }
-
-  if (scrapedServers.length === 0) {
-    scrapedServers = [
-      { name: 'Servidor Oficial CineCalidad', url: 'https://www.cinecalidad.am/' }
-    ];
   }
 
   const episodes = isSerieRequested ? [
