@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,61 +8,104 @@ export async function GET(request: Request) {
   const id = searchParams.get('id') || '';
   const cleanId = id.toLowerCase();
 
-  const tmdbMap: Record<string, string> = {
-    'dune-part-two': '693134',
-    'deadpool-and-wolverine': '533535',
-    'interstellar': '157336',
-    'the-batman': '414906',
-    'oppenheimer': '872585',
-    'the-last-of-us': '100088',
-    'stranger-things': '66732',
-    'breaking-bad': '1396',
-    'house-of-the-dragon': '94997',
-    'the-boys': '76479',
-    'spider-man-across-the-spider-verse': '569094',
-    'avatar-the-way-of-water': '76600',
-    'john-wick-4': '603692',
-    'guardians-of-the-galaxy-vol-3': '447365',
-    'barbie': '346698',
-    'inception': '27205',
-    'the-dark-knight': '155',
-    'game-of-thrones': '1399',
-    'chernobyl': '87108',
-    'succession': '81329'
+  const titleMap: Record<string, string> = {
+    'dune-part-two': 'Duna Parte Dos',
+    'deadpool-and-wolverine': 'Deadpool y Wolverine',
+    'interstellar': 'Interestelar',
+    'the-batman': 'The Batman',
+    'oppenheimer': 'Oppenheimer',
+    'the-last-of-us': 'The Last of Us',
+    'stranger-things': 'Stranger Things',
+    'breaking-bad': 'Breaking Bad',
+    'house-of-the-dragon': 'La Casa del Dragon',
+    'the-boys': 'The Boys'
   };
 
-  let tmdbId = tmdbMap[cleanId];
-  if (!tmdbId) {
-    let hash = 0;
-    for (let i = 0; i < cleanId.length; i++) {
-      hash = (hash << 5) - hash + cleanId.charCodeAt(i);
-      hash |= 0;
+  const movieTitle = titleMap[cleanId] || id.replace(/-/g, ' ');
+
+  let scrapedServers: any[] = [];
+  let scrapedPoster = '';
+  let scrapedBanner = '';
+  let scrapedSynopsis = '';
+  let scrapedTitle = id.replace(/-/g, ' ').toUpperCase();
+  let detailUrl = '';
+
+  try {
+    const searchUrl = `https://www.cinecalidad.am/?s=${encodeURIComponent(movieTitle)}`;
+    const searchRes = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      },
+      signal: AbortSignal.timeout(6000)
+    });
+
+    if (searchRes.ok) {
+      const searchHtml = await searchRes.text();
+      const $s = cheerio.load(searchHtml);
+      const $first = $s('article a, .item a, .post-item a').first();
+      detailUrl = $first.attr('href') || '';
+      
+      if (detailUrl) {
+        const detailRes = await fetch(detailUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'Referer': 'https://www.cinecalidad.am/'
+          },
+          signal: AbortSignal.timeout(6000)
+        });
+
+        if (detailRes.ok) {
+          const detailHtml = await detailRes.text();
+          const $d = cheerio.load(detailHtml);
+
+          scrapedTitle = $d('h1').first().text().trim() || scrapedTitle;
+          scrapedPoster = $d('.poster img, .imagen img, img.wp-post-image').attr('src') || '';
+          scrapedBanner = scrapedPoster;
+          scrapedSynopsis = $d('.synopsis p, .description p, .entry-content p').first().text().trim();
+
+          // Extraer servidores directamente de la página de CineCalidad
+          $d('iframe, [data-video], .server-item, .enlace-server, li[data-server], .options li').each((_, el) => {
+            const $el = $d(el);
+            const src = $el.attr('src') || $el.attr('data-video') || $el.attr('data-url') || '';
+            const text = $el.text().trim() || $el.attr('title') || 'Servidor CineCalidad';
+
+            if (src && (src.includes('voe') || src.includes('dood') || src.includes('vimeo') || src.includes('embed') || src.includes('player') || src.includes('cinecalidad'))) {
+              let name = 'Servidor CineCalidad HD';
+              const lowerText = text.toLowerCase();
+              const lowerSrc = src.toLowerCase();
+
+              if (lowerSrc.includes('voe') || lowerText.includes('voe')) name = 'Voe (CineCalidad Latino)';
+              else if (lowerSrc.includes('dood') || lowerText.includes('dood')) name = 'Doodstream (1080p)';
+              else if (lowerSrc.includes('vimeo') || lowerText.includes('vimeo')) name = 'Vimeos (HD Latino)';
+              
+              if (!scrapedServers.some(s => s.url === src)) {
+                scrapedServers.push({ name, url: src });
+              }
+            }
+          });
+        }
+      }
     }
-    const sampleIds = ['693134', '533535', '157336', '414906', '872585', '27205', '155', '680', '13', '238', '278'];
-    tmdbId = sampleIds[Math.abs(hash) % sampleIds.length];
+  } catch (err) {
+    console.error('Error scraping CineCalidad detail:', err);
   }
 
-  const staticDetails: Record<string, any> = {
-    'dune-part-two': { title: 'Duna: Parte Dos', poster: 'https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05NxlIF.jpg', banner: 'https://image.tmdb.org/t/p/w1280/xOMo8DxX7P6bPCtqg6p9sW31yv7.jpg', synopsis: 'Paul Atreides se une a Chani y a los fremen mientras busca venganza.', rating: '4.9', genres: ['Ciencia Ficción'], type: 'Película' },
-    'deadpool-and-wolverine': { title: 'Deadpool y Wolverine', poster: 'https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg', banner: 'https://image.tmdb.org/t/p/w1280/y2Ca1neKke2mGPMaHzlCDNVPnsK.jpg', synopsis: 'Un apático Wade Wilson se afana en la vida civil.', rating: '4.8', genres: ['Acción'], type: 'Película' },
-    'interstellar': { title: 'Interestelar', poster: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg', banner: 'https://image.tmdb.org/t/p/w1280/rAiYTfKGqDCRIIqo664sY9XZIvQ.jpg', synopsis: 'Un grupo de científicos y exploradores utilizan un agujero de gusano.', rating: '4.9', genres: ['Ciencia Ficción'], type: 'Película' },
-    'the-last-of-us': { title: 'The Last of Us', poster: 'https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg', banner: 'https://image.tmdb.org/t/p/w1280/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg', synopsis: 'Veinte años después de la destrucción de la civilización moderna.', rating: '4.9', genres: ['Drama'], type: 'Serie' },
-    'stranger-things': { title: 'Stranger Things', poster: 'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg', banner: 'https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg', synopsis: 'Cuando un niño desaparece, un pueblo pequeño descubre un misterio.', rating: '4.9', genres: ['Ciencia Ficción'], type: 'Serie' }
-  };
+  // Si encontramos el enlace de la película/serie en CineCalidad, incluimos la página oficial de CineCalidad como Servidor Principal garantizado
+  if (detailUrl) {
+    scrapedServers.unshift({
+      name: 'Servidor Oficial CineCalidad (Directo)',
+      url: detailUrl
+    });
+  }
 
-  const matched = staticDetails[cleanId];
-  const type = cleanId.includes('serie') || cleanId.includes('last-of-us') || cleanId.includes('stranger') || cleanId.includes('breaking') || cleanId.includes('dragon') || cleanId.includes('boys') || cleanId.includes('thrones') || cleanId.includes('chernobyl') || cleanId.includes('succession') ? 'Serie' : 'Película';
-  const isSerie = type === 'Serie';
+  if (scrapedServers.length === 0) {
+    scrapedServers = [
+      { name: 'Servidor Oficial CineCalidad', url: 'https://www.cinecalidad.am/' }
+    ];
+  }
 
-  const servers = isSerie ? [
-    { name: 'Servidor MultiEmbed HD (Latino)', url: `https://multiembed.mov/?tmdb=${tmdbId}&s=1&e=1` },
-    { name: 'Servidor VidSrc XYZ', url: `https://vidsrc.xyz/embed/tv?tmdb=${tmdbId}&season=1&episode=1` },
-    { name: 'Servidor VidSrc Net', url: `https://player.vidsrc.net/embed/tv/${tmdbId}/1/1` }
-  ] : [
-    { name: 'Servidor MultiEmbed HD (Latino)', url: `https://multiembed.mov/?tmdb=${tmdbId}` },
-    { name: 'Servidor VidSrc XYZ', url: `https://vidsrc.xyz/embed/movie?tmdb=${tmdbId}` },
-    { name: 'Servidor VidSrc Net', url: `https://player.vidsrc.net/embed/movie/${tmdbId}` }
-  ];
+  const isSerie = cleanId.includes('serie') || cleanId.includes('last-of-us') || cleanId.includes('stranger') || cleanId.includes('breaking') || cleanId.includes('dragon') || cleanId.includes('boys');
 
   const episodes = isSerie ? [
     { number: 1, title: 'Episodio 1' },
@@ -72,18 +116,18 @@ export async function GET(request: Request) {
     { number: 6, title: 'Episodio 6' },
     { number: 7, title: 'Episodio 7' },
     { number: 8, title: 'Episodio 8' }
-  ] : [{ number: 1, title: 'Película Completa (Latino / Subtitulado)' }];
+  ] : [{ number: 1, title: 'Película Completa (Español Latino)' }];
 
   return NextResponse.json({
     id,
-    title: matched?.title || id.replace(/-/g, ' ').toUpperCase(),
-    poster: matched?.poster || `https://picsum.photos/seed/${cleanId}/500/750`,
-    banner: matched?.banner || `https://picsum.photos/seed/${cleanId}banner/1280/720`,
-    synopsis: matched?.synopsis || 'Disfruta de este título en alta calidad con servidores rápidos en español latino.',
-    rating: matched?.rating || '4.8',
-    genres: matched?.genres || ['Cine y TV'],
-    type,
-    servers,
+    title: scrapedTitle,
+    poster: scrapedPoster || `https://picsum.photos/seed/${cleanId}/500/750`,
+    banner: scrapedBanner || `https://picsum.photos/seed/${cleanId}banner/1280/720`,
+    synopsis: scrapedSynopsis || 'Disfruta de este título en alta calidad con los servidores oficiales extraídos de CineCalidad en español latino.',
+    rating: '4.9',
+    genres: ['Cine y TV'],
+    type: isSerie ? 'Serie' : 'Película',
+    servers: scrapedServers,
     episodes
   });
 }
