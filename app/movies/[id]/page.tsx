@@ -153,7 +153,6 @@ export default function MovieDetailPage() {
                 key={currentEmbedUrl}
                 src={currentEmbedUrl}
                 className="w-full h-full border-0"
-                sandbox="allow-scripts allow-same-origin allow-presentation"
                 allowFullScreen
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               />
