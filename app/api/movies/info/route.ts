@@ -5,98 +5,95 @@ export const dynamic = 'force-dynamic';
 
 const CHROME_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
-const tmdbDatabase: Record<string, any> = {
-  'dune-part-two': {
-    title: 'Dune Parte 2',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05NxlIF.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/xOMo8DxX7P6bPCtqg6p9sW31yv7.jpg',
-    synopsis: 'Paul Atreides se une a Chani y a los fremen mientras busca venganza contra los conspiradores que destruyeron a su familia.',
-    rating: '4.9',
-    genres: ['Ciencia Ficción', 'Aventura']
-  },
-  'deadpool-and-wolverine': {
-    title: 'Deadpool y Wolverine',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/y2Ca1neKke2mGPMaHzlCDNVPnsK.jpg',
-    synopsis: 'Un apático Wade Wilson se afana en la vida civil. Sus días como el mercenario moralmente flexible han quedado atrás.',
-    rating: '4.8',
-    genres: ['Acción', 'Comedia']
-  },
-  'interstellar': {
-    title: 'Interestelar',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/rAiYTfKGqDCRIIqo664sY9XZIvQ.jpg',
-    synopsis: 'Un grupo de científicos y exploradores utilizan un agujero de gusano para superar las limitaciones de los viajes espaciales.',
-    rating: '4.9',
-    genres: ['Ciencia Ficción', 'Drama']
-  },
-  'the-batman': {
-    title: 'The Batman',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/5hNEdNSboScUPwm8g2F3s6G2A5l.jpg',
-    synopsis: 'En su segundo año luchando contra el crimen, Batman descubre la corrupción en Gotham City.',
-    rating: '4.8',
-    genres: ['Crimen', 'Misterio']
-  },
-  'oppenheimer': {
-    title: 'Oppenheimer',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg',
-    synopsis: 'La historia del físico estadounidense J. Robert Oppenheimer y el Proyecto Manhattan.',
-    rating: '4.9',
-    genres: ['Drama', 'Historia']
-  },
-  'the-last-of-us': {
-    title: 'The Last of Us',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg',
-    synopsis: 'Veinte años después de la destrucción de la civilización moderna.',
-    rating: '4.9',
-    genres: ['Drama', 'Acción']
-  },
-  'stranger-things': {
-    title: 'Stranger Things',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg',
-    synopsis: 'Cuando un niño desaparece, un pueblo pequeño descubre un misterio sobrenatural.',
-    rating: '4.9',
-    genres: ['Ciencia Ficción', 'Terror']
-  },
-  'breaking-bad': {
-    title: 'Breaking Bad',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg',
-    synopsis: 'Un profesor de química de secundaria con cáncer terminal se asocia con un ex alumno.',
-    rating: '4.9',
-    genres: ['Drama', 'Crimen']
-  },
-  'house-of-the-dragon': {
-    title: 'La Casa del Dragón',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/z2yahl2uefxDCl0nogcRBstwruJ.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/etp0kzncgDBg4Uo5C8A6QJ8nO6E.jpg',
-    synopsis: 'La guerra civil de los Targaryen se desata 200 años antes de Juego de Tronos.',
-    rating: '4.8',
-    genres: ['Fantasía', 'Drama']
-  },
-  'the-boys': {
-    title: 'The Boys',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/2zmTngn1tYC1AvkgvFLhVMi6PWY.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/mYnpKiwcUiaF9Z7d425kUq2Wd1t.jpg',
-    synopsis: 'Un grupo de vigilantes se propone derribar a los superhéroes corruptos.',
-    rating: '4.8',
-    genres: ['Acción', 'Ciencia Ficción']
+async function fetchTMDBMeta(slug: string): Promise<{
+  title: string;
+  type: 'Película' | 'Serie';
+  poster: string;
+  banner: string;
+  synopsis: string;
+  rating: string;
+  genres: string[];
+  tmdbId: number;
+} | null> {
+  const query = slug.replace(/-/g, ' ');
+  const token = process.env.TMDB_READ_TOKEN;
+
+  if (!token) {
+    throw new Error('TMDB_READ_TOKEN is not configured');
   }
-};
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json'
+  };
+
+  try {
+    // 1. Buscar como Película
+    const movieSearchRes = await fetch(`https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=es-ES`, {
+      headers,
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (movieSearchRes.ok) {
+      const movieData = await movieSearchRes.json();
+      if (movieData.results && movieData.results.length > 0) {
+        const topResult = movieData.results[0];
+        const detailRes = await fetch(`https://api.themoviedb.org/3/movie/${topResult.id}?language=es-ES`, {
+          headers,
+          signal: AbortSignal.timeout(8000)
+        });
+        if (detailRes.ok) {
+          const detail = await detailRes.json();
+          return {
+            title: detail.title || topResult.title,
+            type: 'Película',
+            poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
+            banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
+            synopsis: detail.overview || 'Sinopsis no disponible.',
+            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '4.8',
+            genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
+            tmdbId: detail.id
+          };
+        }
+      }
+    }
+
+    // 2. Si no hay resultados de película, buscar como Serie (TV)
+    const tvSearchRes = await fetch(`https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&language=es-ES`, {
+      headers,
+      signal: AbortSignal.timeout(8000)
+    });
+
+    if (tvSearchRes.ok) {
+      const tvData = await tvSearchRes.json();
+      if (tvData.results && tvData.results.length > 0) {
+        const topResult = tvData.results[0];
+        const detailRes = await fetch(`https://api.themoviedb.org/3/tv/${topResult.id}?language=es-ES`, {
+          headers,
+          signal: AbortSignal.timeout(8000)
+        });
+        if (detailRes.ok) {
+          const detail = await detailRes.json();
+          return {
+            title: detail.name || topResult.name,
+            type: 'Serie',
+            poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
+            banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
+            synopsis: detail.overview || 'Sinopsis no disponible.',
+            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '4.8',
+            genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
+            tmdbId: detail.id
+          };
+        }
+      }
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Error in fetchTMDBMeta:', err);
+    throw err;
+  }
+}
 
 function normalizeStr(str: string): string {
   return str
@@ -216,7 +213,16 @@ function extractServersFromMoviePage(html: string): Array<{ nombre: string; url:
     $('#playeroptionsul li[data-option]').each((_, el) => {
       const $el = $(el);
       const url = $el.attr('data-option') || '';
-      const nombre = $el.text().trim() || 'Servidor HD';
+      
+      // Extraer solo el primer nodo de texto directo (excluir spans anidados)
+      let nombre = '';
+      $el.contents().each((_, node) => {
+        if (node.type === 'text' && !nombre) {
+          nombre = (node as any).data?.trim() || '';
+        }
+      });
+      if (!nombre) nombre = 'Servidor HD';
+
       const className = $el.attr('class') || '';
 
       const isTrailerClass = className.includes('dooplay_player_option_trailer');
@@ -241,17 +247,21 @@ function extractServersFromMoviePage(html: string): Array<{ nombre: string; url:
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id') || '';
-  const cleanId = id.toLowerCase();
 
-  const tmdbMeta = tmdbDatabase[cleanId] || {
-    title: id.replace(/-/g, ' ').toUpperCase(),
-    type: 'Película',
-    poster: `https://picsum.photos/seed/${cleanId}/500/750`,
-    banner: `https://picsum.photos/seed/${cleanId}banner/1280/720`,
-    synopsis: 'Disfruta de este título en alta calidad con múltiples servidores.',
-    rating: '4.8',
-    genres: ['Cine y TV']
-  };
+  if (!id) {
+    return NextResponse.json({ error: 'ID o slug requerido' }, { status: 400 });
+  }
+
+  let tmdbMeta = null;
+  try {
+    tmdbMeta = await fetchTMDBMeta(id);
+  } catch (err) {
+    return NextResponse.json({ error: 'Error conectando con TMDB' }, { status: 500 });
+  }
+
+  if (!tmdbMeta) {
+    return NextResponse.json({ error: 'Título no encontrado en TMDB' }, { status: 404 });
+  }
 
   const isSerie = tmdbMeta.type === 'Serie';
   let servers: Array<{ nombre: string; url: string }> = [];
@@ -277,7 +287,6 @@ export async function GET(request: Request) {
     console.error('Error in info API route:', err);
   }
 
-  // Eliminados todos los fallbacks hardcodeados con vidsrc. Si no hay servidores reales, devuelve array vacío [].
   const episodes = isSerie ? [
     { number: 1, title: 'Episodio 1' },
     { number: 2, title: 'Episodio 2' },
