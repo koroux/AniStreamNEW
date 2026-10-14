@@ -60,8 +60,8 @@ export default function MovieDetailPage() {
       await supabase.from('user_favorites').insert({
         user_id: user.id,
         anime_id: id,
-        title: item.title,
-        poster: item.poster
+        title: item?.title || '',
+        poster: item?.poster || ''
       });
       setIsFavorite(true);
     }
@@ -85,16 +85,11 @@ export default function MovieDetailPage() {
   }
 
   const isSerie = item.type === 'Serie';
-  const servers = item.servers || [
-    { name: 'Servidor Principal HD (Latino)', url: 'https://vidsrc.to/embed/movie/550' },
-    { name: 'Servidor Alternativo 1080p', url: 'https://vidsrc.cc/v2/embed/movie/550' },
-    { name: 'Servidor MultiEmbed', url: 'https://multiembed.mov/?tmdb=550' }
-  ];
+  const servers = Array.isArray(item.servers) ? item.servers : [];
+  const currentServer = servers[serverIndex] || servers[0] || null;
 
-  const currentServer = servers[serverIndex] || servers[0];
-
-  let currentEmbedUrl = currentServer.url;
-  if (isSerie) {
+  let currentEmbedUrl = currentServer?.url || '';
+  if (isSerie && currentEmbedUrl) {
     if (currentEmbedUrl.includes('season=')) {
       currentEmbedUrl = currentEmbedUrl.replace(/episode=\d+/, `episode=${selectedEp}`);
     } else if (currentEmbedUrl.includes('/tv/')) {
@@ -134,29 +129,38 @@ export default function MovieDetailPage() {
             </span>
 
             {/* SELECTOR DE SERVIDORES LIMPIOS */}
-            <div className="flex items-center gap-2 bg-neutral-900 p-1.5 rounded-xl border border-white/10 overflow-x-auto max-w-full">
-              <Server size={16} className="text-orange-500 ml-2 flex-shrink-0" />
-              {servers.map((srv: any, idx: number) => (
-                <button
-                  key={idx}
-                  onClick={() => setServerIndex(idx)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${serverIndex === idx ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
-                >
-                  {srv.name}
-                </button>
-              ))}
-            </div>
+            {servers.length > 0 && (
+              <div className="flex items-center gap-2 bg-neutral-900 p-1.5 rounded-xl border border-white/10 overflow-x-auto max-w-full">
+                <Server size={16} className="text-orange-500 ml-2 flex-shrink-0" />
+                {servers.map((srv: any, idx: number) => (
+                  <button
+                    key={idx}
+                    onClick={() => setServerIndex(idx)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${serverIndex === idx ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+                  >
+                    {srv.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           
           <div className="w-full h-[72vh] container mx-auto px-6 pb-6">
-            <div className="w-full h-full bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative">
-              <iframe
-                key={currentEmbedUrl}
-                src={currentEmbedUrl}
-                className="w-full h-full border-0"
-                allowFullScreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              />
+            <div className="w-full h-full bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative flex items-center justify-center">
+              {currentEmbedUrl ? (
+                <iframe
+                  key={currentEmbedUrl}
+                  src={currentEmbedUrl}
+                  className="w-full h-full border-0"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              ) : (
+                <div className="text-neutral-400 text-center p-8">
+                  <p className="text-lg font-bold mb-2">No hay servidores disponibles para este título por el momento.</p>
+                  <p className="text-sm">Intenta seleccionar otro título o vuelve más tarde.</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

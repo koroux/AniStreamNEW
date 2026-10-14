@@ -7,8 +7,9 @@ const CHROME_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit
 
 const tmdbDatabase: Record<string, any> = {
   'dune-part-two': {
-    title: 'Duna: Parte Dos',
+    title: 'Dune Parte 2',
     type: 'Película',
+    tmdbId: '693134',
     poster: 'https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05NxlIF.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/xOMo8DxX7P6bPCtqg6p9sW31yv7.jpg',
     synopsis: 'Paul Atreides se une a Chani y a los fremen mientras busca venganza contra los conspiradores que destruyeron a su familia.',
@@ -18,6 +19,7 @@ const tmdbDatabase: Record<string, any> = {
   'deadpool-and-wolverine': {
     title: 'Deadpool y Wolverine',
     type: 'Película',
+    tmdbId: '533535',
     poster: 'https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/y2Ca1neKke2mGPMaHzlCDNVPnsK.jpg',
     synopsis: 'Un apático Wade Wilson se afana en la vida civil. Sus días como el mercenario moralmente flexible han quedado atrás.',
@@ -27,6 +29,7 @@ const tmdbDatabase: Record<string, any> = {
   'interstellar': {
     title: 'Interestelar',
     type: 'Película',
+    tmdbId: '157336',
     poster: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/rAiYTfKGqDCRIIqo664sY9XZIvQ.jpg',
     synopsis: 'Un grupo de científicos y exploradores utilizan un agujero de gusano para superar las limitaciones de los viajes espaciales.',
@@ -36,6 +39,7 @@ const tmdbDatabase: Record<string, any> = {
   'the-batman': {
     title: 'The Batman',
     type: 'Película',
+    tmdbId: '414906',
     poster: 'https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/5hNEdNSboScUPwm8g2F3s6G2A5l.jpg',
     synopsis: 'En su segundo año luchando contra el crimen, Batman descubre la corrupción en Gotham City.',
@@ -45,6 +49,7 @@ const tmdbDatabase: Record<string, any> = {
   'oppenheimer': {
     title: 'Oppenheimer',
     type: 'Película',
+    tmdbId: '872585',
     poster: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg',
     synopsis: 'La historia del físico estadounidense J. Robert Oppenheimer y el Proyecto Manhattan.',
@@ -54,6 +59,7 @@ const tmdbDatabase: Record<string, any> = {
   'the-last-of-us': {
     title: 'The Last of Us',
     type: 'Serie',
+    tmdbId: '100088',
     poster: 'https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg',
     synopsis: 'Veinte años después de la destrucción de la civilización moderna.',
@@ -63,6 +69,7 @@ const tmdbDatabase: Record<string, any> = {
   'stranger-things': {
     title: 'Stranger Things',
     type: 'Serie',
+    tmdbId: '66732',
     poster: 'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg',
     synopsis: 'Cuando un niño desaparece, un pueblo pequeño descubre un misterio sobrenatural.',
@@ -72,6 +79,7 @@ const tmdbDatabase: Record<string, any> = {
   'breaking-bad': {
     title: 'Breaking Bad',
     type: 'Serie',
+    tmdbId: '1396',
     poster: 'https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg',
     synopsis: 'Un profesor de química de secundaria con cáncer terminal se asocia con un ex alumno.',
@@ -81,6 +89,7 @@ const tmdbDatabase: Record<string, any> = {
   'house-of-the-dragon': {
     title: 'La Casa del Dragón',
     type: 'Serie',
+    tmdbId: '94997',
     poster: 'https://image.tmdb.org/t/p/w500/z2yahl2uefxDCl0nogcRBstwruJ.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/etp0kzncgDBg4Uo5C8A6QJ8nO6E.jpg',
     synopsis: 'La guerra civil de los Targaryen se desata 200 años antes de Juego de Tronos.',
@@ -90,101 +99,12 @@ const tmdbDatabase: Record<string, any> = {
   'the-boys': {
     title: 'The Boys',
     type: 'Serie',
+    tmdbId: '76479',
     poster: 'https://image.tmdb.org/t/p/w500/2zmTngn1tYC1AvkgvFLhVMi6PWY.jpg',
     banner: 'https://image.tmdb.org/t/p/w1280/mYnpKiwcUiaF9Z7d425kUq2Wd1t.jpg',
     synopsis: 'Un grupo de vigilantes se propone derribar a los superhéroes corruptos.',
     rating: '4.8',
     genres: ['Acción', 'Ciencia Ficción']
-  },
-  'spider-man-across-the-spider-verse': {
-    title: 'Spider-Man: A través del Spider-Verso',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/8Vt6mWEReuy4Of61Lnj5Xj704m8.jpg',
-    synopsis: 'Miles Morales propulsa a través del Multiverso.',
-    rating: '4.9',
-    genres: ['Animación', 'Acción']
-  },
-  'avatar-the-way-of-water': {
-    title: 'Avatar: El camino del agua',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/t6HIqrRAclMCA60NsSmeqe9RmNV.jpg',
-    synopsis: 'Jake Sully vive con su nueva familia formadas en los arrecifes de Pandora.',
-    rating: '4.8',
-    genres: ['Ciencia Ficción', 'Aventura']
-  },
-  'john-wick-4': {
-    title: 'John Wick 4',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/vZloFAK7NmvMGKE7VkF5UHaz0I.jpg',
-    synopsis: 'John Wick descubre un camino para derrotar a la Alta Mesa.',
-    rating: '4.8',
-    genres: ['Acción', 'Suspenso']
-  },
-  'guardians-of-the-galaxy-vol-3': {
-    title: 'Guardianes de la Galaxia Vol. 3',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/r2J02Z2OpNTctfOSN1Ydgii51I3.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/r2J02Z2OpNTctfOSN1Ydgii51I3.jpg',
-    synopsis: 'Nuestra querida banda de inadaptados se instala en Knowhere.',
-    rating: '4.8',
-    genres: ['Acción', 'Ciencia Ficción']
-  },
-  'barbie': {
-    title: 'Barbie',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/iuFNkhmIp57WDXG1iXl0nKjW9g8.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/iuFNkhmIp57WDXG1iXl0nKjW9g8.jpg',
-    synopsis: 'Barbie vive en Barbieland y su vida es ideal.',
-    rating: '4.7',
-    genres: ['Comedia', 'Fantasía']
-  },
-  'inception': {
-    title: 'El Origen',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/edv5CZvWj09upOsy2Y6IwDhK8bt.jpg',
-    synopsis: 'Un ladrón que roba secretos corporativos a través de los sueños.',
-    rating: '4.9',
-    genres: ['Acción', 'Ciencia Ficción']
-  },
-  'the-dark-knight': {
-    title: 'Batman: El Caballero de la Noche',
-    type: 'Película',
-    poster: 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/qJ2tW6WMUDux911r6m7haRef0WH.jpg',
-    synopsis: 'Batman asume el reto de destruir el crimen organizado en Gotham.',
-    rating: '4.9',
-    genres: ['Acción', 'Crimen']
-  },
-  'game-of-thrones': {
-    title: 'Juego de Tronos',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/u3bZgnGQ9T01sWNhyveQz0wH0Hl.jpg',
-    synopsis: 'Nueve familias nobles luchan por el control de las tierras de Westeros.',
-    rating: '4.9',
-    genres: ['Fantasía', 'Drama']
-  },
-  'chernobyl': {
-    title: 'Chernóbil',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/hlLXt2StEbGrmku7t2iNq1m96l.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/hlLXt2StEbGrmku7t2iNq1m96l.jpg',
-    synopsis: 'En abril de 1986, la central nuclear de Chernóbil sufre una catástrofe.',
-    rating: '4.9',
-    genres: ['Drama', 'Historia']
-  },
-  'succession': {
-    title: 'Succession',
-    type: 'Serie',
-    poster: 'https://image.tmdb.org/t/p/w500/7ZAw6trS9y5Y5c4p5G4JpT0q5s0.jpg',
-    banner: 'https://image.tmdb.org/t/p/w1280/7ZAw6trS9y5Y5c4p5G4JpT0q5s0.jpg',
-    synopsis: 'Los Roy son conocidos por controlar Waystar RoyCo.',
-    rating: '4.8',
-    genres: ['Drama']
   }
 };
 
@@ -199,7 +119,12 @@ function normalizeStr(str: string): string {
 
 async function searchMovieOnCineCalidad(queryTitle: string, isSerie: boolean): Promise<string> {
   try {
-    const searchUrl = `https://www.cinecalidad.am/?s=${encodeURIComponent(queryTitle)}`;
+    const cleanTitle = queryTitle
+      .replace(/[:.,;!?()"'¡¿\-–—]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const searchUrl = `https://www.cinecalidad.am/?s=${encodeURIComponent(cleanTitle)}`;
     const res = await fetch(searchUrl, {
       headers: {
         'User-Agent': CHROME_USER_AGENT,
@@ -212,7 +137,7 @@ async function searchMovieOnCineCalidad(queryTitle: string, isSerie: boolean): P
 
     const html = await res.text();
     const $ = cheerio.load(html);
-    const normalizedQuery = normalizeStr(queryTitle);
+    const normalizedQuery = normalizeStr(cleanTitle);
 
     let bestMatchUrl = '';
     let bestScore = -1;
@@ -237,7 +162,7 @@ async function searchMovieOnCineCalidad(queryTitle: string, isSerie: boolean): P
       } else if (normalizedCardTitle.includes(normalizedQuery) || normalizedQuery.includes(normalizedCardTitle)) {
         score = 50;
       } else {
-        score = 10;
+        continue;
       }
 
       if (expectedTypeMatch) {
@@ -253,9 +178,8 @@ async function searchMovieOnCineCalidad(queryTitle: string, isSerie: boolean): P
       }
     }
 
-    if (!bestMatchUrl) {
-      const firstLink = $('article a, .item a, .post-item a').first().attr('href');
-      if (firstLink) bestMatchUrl = firstLink;
+    if (bestScore < 50) {
+      return '';
     }
 
     return bestMatchUrl;
@@ -271,14 +195,12 @@ function extractServersFromMoviePage(html: string): Array<{ nombre: string; url:
   try {
     const $ = cheerio.load(html);
 
-    // Selector exacto requerido: #playeroptionsul li[data-option]
     $('#playeroptionsul li[data-option]').each((_, el) => {
       const $el = $(el);
       const url = $el.attr('data-option') || '';
       const nombre = $el.text().trim() || 'Servidor HD';
       const className = $el.attr('class') || '';
 
-      // Filtro obligatorio para excluir trailers
       const isTrailerClass = className.includes('dooplay_player_option_trailer');
       const isTrailerUrl = url.includes('youtube.com');
       const isTrailerName = nombre.toLowerCase().includes('trailer');
@@ -306,9 +228,10 @@ export async function GET(request: Request) {
   const tmdbMeta = tmdbDatabase[cleanId] || {
     title: id.replace(/-/g, ' ').toUpperCase(),
     type: 'Película',
+    tmdbId: '550',
     poster: `https://picsum.photos/seed/${cleanId}/500/750`,
     banner: `https://picsum.photos/seed/${cleanId}banner/1280/720`,
-    synopsis: 'Disfruta de este título en alta calidad.',
+    synopsis: 'Disfruta de este título en alta calidad con múltiples servidores.',
     rating: '4.8',
     genres: ['Cine y TV']
   };
@@ -335,6 +258,23 @@ export async function GET(request: Request) {
     }
   } catch (err) {
     console.error('Error in info API route:', err);
+  }
+
+  if (servers.length === 0) {
+    const tId = tmdbMeta.tmdbId || '550';
+    if (isSerie) {
+      servers = [
+        { nombre: 'Servidor Principal (Latino)', url: `https://vidsrc.to/embed/tv/${tId}` },
+        { nombre: 'Servidor Alternativo 1080p', url: `https://vidsrc.cc/v2/embed/tv/${tId}` },
+        { nombre: 'Servidor MultiEmbed', url: `https://multiembed.mov/?tmdb=${tId}&type=tv` }
+      ];
+    } else {
+      servers = [
+        { nombre: 'Servidor Principal (Latino)', url: `https://vidsrc.to/embed/movie/${tId}` },
+        { nombre: 'Servidor Alternativo 1080p', url: `https://vidsrc.cc/v2/embed/movie/${tId}` },
+        { nombre: 'Servidor MultiEmbed', url: `https://multiembed.mov/?tmdb=${tId}` }
+      ];
+    }
   }
 
   const episodes = isSerie ? [
