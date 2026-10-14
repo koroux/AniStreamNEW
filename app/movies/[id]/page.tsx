@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
-import { NativeVideoPlayer } from '@/components/native-video-player';
-import { Play, Plus, Check, Loader2, Star, ArrowLeft, Tv, Film } from 'lucide-react';
+import { Play, Plus, Check, Loader2, Star, ArrowLeft, Tv, Film, Server } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function MovieDetailPage() {
@@ -19,6 +18,7 @@ export default function MovieDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedEp, setSelectedEp] = useState<number>(1);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [serverIndex, setServerIndex] = useState<number>(0);
 
   useEffect(() => {
     const init = async () => {
@@ -84,6 +84,20 @@ export default function MovieDetailPage() {
     );
   }
 
+  const isSerie = item.type === 'Serie';
+  const servers = item.servers || [
+    { name: 'Voe (El Bueno - Latino HD)', url: 'https://vidsrc.to/embed/movie/550' },
+    { name: 'Doodstream (1080p)', url: 'https://vidsrc.cc/v2/embed/movie/550' },
+    { name: 'Goodstream (Latino)', url: 'https://multiembed.mov/?tmdb=550' }
+  ];
+
+  const currentServer = servers[serverIndex] || servers[0];
+
+  let currentEmbedUrl = currentServer.url;
+  if (isSerie && currentEmbedUrl.includes('/tv/')) {
+    currentEmbedUrl = currentEmbedUrl.replace(/\/\d+\/\d+$/, `/1/${selectedEp}`);
+  }
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pb-24">
       <Navbar user={user} isGuest={!user} />
@@ -96,27 +110,46 @@ export default function MovieDetailPage() {
         </div>
       )}
 
-      {/* REPRODUCTOR NATIVO O BANNER */}
+      {/* REPRODUCTOR ESTILO CINE-CALIDAD (VOE, DOODSTREAM, GOODSTREAM) */}
       {isPlaying ? (
-        <div className="w-full min-h-[85vh] bg-black pt-20 relative flex flex-col items-center justify-center">
-          <div className="w-full container mx-auto px-6 py-4 flex items-center justify-between gap-4 z-30">
+        <div className="w-full min-h-[90vh] bg-black pt-20 relative flex flex-col items-center justify-center">
+          <div className="w-full container mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 z-30">
             <button 
               onClick={() => setIsPlaying(false)}
-              className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 backdrop-blur-md border border-white/10"
+              className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2.5 rounded-xl flex items-center gap-2 backdrop-blur-md border border-white/10 font-semibold"
             >
               <ArrowLeft size={18} /> Volver a sinopsis
             </button>
-            <span className="text-sm font-bold text-neutral-300 truncate">
-              Reproduciendo: {item.title} {item.type === 'Serie' ? `- Ep. ${selectedEp}` : ''}
+
+            <span className="text-sm font-bold text-neutral-200 truncate">
+              {item.title} {isSerie ? `- Ep. ${selectedEp}` : ''}
             </span>
+
+            {/* SELECTOR DE SERVIDORES CINE-CALIDAD */}
+            <div className="flex items-center gap-2 bg-neutral-900 p-1.5 rounded-xl border border-white/10 overflow-x-auto max-w-full">
+              <Server size={16} className="text-orange-500 ml-2 flex-shrink-0" />
+              {servers.map((srv: any, idx: number) => (
+                <button
+                  key={idx}
+                  onClick={() => setServerIndex(idx)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${serverIndex === idx ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+                >
+                  {srv.name}
+                </button>
+              ))}
+            </div>
           </div>
           
           <div className="w-full h-[72vh] container mx-auto px-6 pb-6">
-            <NativeVideoPlayer 
-              src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4"
-              poster={item.banner || item.poster}
-              autoPlay={true}
-            />
+            <div className="w-full h-full bg-black rounded-2xl overflow-hidden shadow-2xl border border-white/10 relative">
+              <iframe
+                key={currentEmbedUrl}
+                src={currentEmbedUrl}
+                className="w-full h-full border-0"
+                allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              />
+            </div>
           </div>
         </div>
       ) : (
@@ -141,7 +174,7 @@ export default function MovieDetailPage() {
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <span className="bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                  {item.type === 'Serie' ? <Tv size={12} /> : <Film size={12} />}
+                  {isSerie ? <Tv size={12} /> : <Film size={12} />}
                   {item.type}
                 </span>
                 <div className="flex items-center gap-1 text-amber-400 font-bold text-sm bg-black/50 px-3 py-1 rounded-full backdrop-blur-md">
@@ -162,7 +195,7 @@ export default function MovieDetailPage() {
                   className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-8 py-3.5 rounded-xl flex items-center gap-3 transition-all transform hover:scale-105 shadow-xl shadow-orange-900/40"
                 >
                   <Play className="fill-current" size={20} />
-                  <span>Reproducir {item.type === 'Serie' ? `Ep. ${selectedEp}` : ''}</span>
+                  <span>Reproducir {isSerie ? `Ep. ${selectedEp}` : ''}</span>
                 </button>
 
                 <button 
@@ -188,7 +221,7 @@ export default function MovieDetailPage() {
       )}
 
       {/* EPISODIOS O CAPÍTULOS (SI ES SERIE) */}
-      {item.type === 'Serie' && item.episodes && !isPlaying && (
+      {isSerie && item.episodes && !isPlaying && (
         <div className="container mx-auto px-6 mt-12">
           <h2 className="text-2xl font-black text-white mb-6">Episodios</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
