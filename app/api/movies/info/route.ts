@@ -8,6 +8,8 @@ export async function GET(request: Request) {
   const id = searchParams.get('id') || '';
   const cleanId = id.toLowerCase();
 
+  const isSerieRequested = cleanId.includes('serie') || cleanId.includes('last-of-us') || cleanId.includes('stranger') || cleanId.includes('breaking') || cleanId.includes('dragon') || cleanId.includes('boys') || cleanId.includes('game-of-thrones') || cleanId.includes('chernobyl') || cleanId.includes('succession');
+
   const titleMap: Record<string, string> = {
     'dune-part-two': 'Duna Parte Dos',
     'deadpool-and-wolverine': 'Deadpool y Wolverine',
@@ -18,7 +20,17 @@ export async function GET(request: Request) {
     'stranger-things': 'Stranger Things',
     'breaking-bad': 'Breaking Bad',
     'house-of-the-dragon': 'La Casa del Dragon',
-    'the-boys': 'The Boys'
+    'the-boys': 'The Boys',
+    'spider-man-across-the-spider-verse': 'Spider-Man Across the Spider-Verse',
+    'avatar-the-way-of-water': 'Avatar El camino del agua',
+    'john-wick-4': 'John Wick 4',
+    'guardians-of-the-galaxy-vol-3': 'Guardianes de la Galaxia Vol 3',
+    'barbie': 'Barbie',
+    'inception': 'El Origen',
+    'the-dark-knight': 'The Dark Knight',
+    'game-of-thrones': 'Juego de Tronos',
+    'chernobyl': 'Chernobyl',
+    'succession': 'Succession'
   };
 
   const movieTitle = titleMap[cleanId] || id.replace(/-/g, ' ');
@@ -43,8 +55,26 @@ export async function GET(request: Request) {
     if (searchRes.ok) {
       const searchHtml = await searchRes.text();
       const $s = cheerio.load(searchHtml);
-      const $first = $s('article a, .item a, .post-item a').first();
-      detailUrl = $first.attr('href') || '';
+      
+      // Buscar el resultado que coincida estrictamente con Película o Serie según corresponda
+      $s('article, .item, .post-item').each((_, el) => {
+        const $el = $s(el);
+        const link = $el.find('a').attr('href') || '';
+        const isLinkSerie = link.includes('/serie/') || link.includes('/series/');
+
+        if (detailUrl) return; // Ya encontrado
+
+        if (isSerieRequested && isLinkSerie) {
+          detailUrl = link;
+        } else if (!isSerieRequested && !isLinkSerie) {
+          detailUrl = link;
+        }
+      });
+
+      // Si no hubo coincidencia estricta, tomamos el primer resultado disponible
+      if (!detailUrl) {
+        detailUrl = $s('article a, .item a, .post-item a').first().attr('href') || '';
+      }
       
       if (detailUrl) {
         const detailRes = await fetch(detailUrl, {
@@ -64,14 +94,13 @@ export async function GET(request: Request) {
           scrapedBanner = scrapedPoster;
           scrapedSynopsis = $d('.synopsis p, .description p, .entry-content p').first().text().trim();
 
-          // Extraer servidores directamente de la página de CineCalidad
           $d('iframe, [data-video], .server-item, .enlace-server, li[data-server], .options li').each((_, el) => {
             const $el = $d(el);
             const src = $el.attr('src') || $el.attr('data-video') || $el.attr('data-url') || '';
             const text = $el.text().trim() || $el.attr('title') || 'Servidor CineCalidad';
 
             if (src && (src.includes('voe') || src.includes('dood') || src.includes('vimeo') || src.includes('embed') || src.includes('player') || src.includes('cinecalidad'))) {
-              let name = 'Servidor CineCalidad HD';
+              let name = 'Servidor HD Latino';
               const lowerText = text.toLowerCase();
               const lowerSrc = src.toLowerCase();
 
@@ -91,7 +120,6 @@ export async function GET(request: Request) {
     console.error('Error scraping CineCalidad detail:', err);
   }
 
-  // Si encontramos el enlace de la película/serie en CineCalidad, incluimos la página oficial de CineCalidad como Servidor Principal garantizado
   if (detailUrl) {
     scrapedServers.unshift({
       name: 'Servidor Oficial CineCalidad (Directo)',
@@ -105,9 +133,7 @@ export async function GET(request: Request) {
     ];
   }
 
-  const isSerie = cleanId.includes('serie') || cleanId.includes('last-of-us') || cleanId.includes('stranger') || cleanId.includes('breaking') || cleanId.includes('dragon') || cleanId.includes('boys');
-
-  const episodes = isSerie ? [
+  const episodes = isSerieRequested ? [
     { number: 1, title: 'Episodio 1' },
     { number: 2, title: 'Episodio 2' },
     { number: 3, title: 'Episodio 3' },
@@ -126,7 +152,7 @@ export async function GET(request: Request) {
     synopsis: scrapedSynopsis || 'Disfruta de este título en alta calidad con los servidores oficiales extraídos de CineCalidad en español latino.',
     rating: '4.9',
     genres: ['Cine y TV'],
-    type: isSerie ? 'Serie' : 'Película',
+    type: isSerieRequested ? 'Serie' : 'Película',
     servers: scrapedServers,
     episodes
   });
