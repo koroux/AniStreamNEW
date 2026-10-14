@@ -3,17 +3,18 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
-import { Loader2, Film, Tv, Star, Play } from 'lucide-react';
+import { Loader2, Film, Tv, Star, Play, Filter } from 'lucide-react';
 
 export default function MoviesBrowsePage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<'all' | 'Película' | 'Serie'>('all');
+  const [selectedGenre, setSelectedGenre] = useState<string>('Todos');
 
   useEffect(() => {
     const fetchBrowse = async () => {
       try {
-        const res = await fetch('/api/movies/home');
+        const res = await fetch('/api/movies/browse');
         const json = await res.json();
         setData(json);
       } catch (e) {
@@ -27,7 +28,12 @@ export default function MoviesBrowsePage() {
 
   const allItems = [...(data?.movies || []), ...(data?.series || []), ...(data?.trending || [])];
   const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
-  const filtered = filterType === 'all' ? uniqueItems : uniqueItems.filter((i: any) => i.type === filterType);
+  
+  const filtered = uniqueItems.filter((item: any) => {
+    const matchesType = filterType === 'all' || item.type === filterType;
+    const matchesGenre = selectedGenre === 'Todos' || item.genre === selectedGenre;
+    return matchesType && matchesGenre;
+  });
 
   if (loading) {
     return (
@@ -42,34 +48,52 @@ export default function MoviesBrowsePage() {
       <Navbar />
 
       <div className="container mx-auto px-6 pt-32">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
-            <h1 className="text-3xl font-black mb-1">Explorar Películas y Series</h1>
-            <p className="text-neutral-400 text-sm">Catálogo completo en alta definición con audio latino y subtitulado.</p>
+            <h1 className="text-3xl md:text-4xl font-black mb-2">Catálogo Completo de Cine y TV</h1>
+            <p className="text-neutral-400 text-sm">Explora nuestra colección en alta definición con servidores en español latino.</p>
           </div>
 
-          <div className="flex items-center gap-2 bg-neutral-900 p-1.5 rounded-xl border border-white/10 self-start">
-            <button 
-              onClick={() => setFilterType('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterType === 'all' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
-            >
-              Todos
-            </button>
-            <button 
-              onClick={() => setFilterType('Película')}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${filterType === 'Película' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
-            >
-              <Film size={14} /> Películas
-            </button>
-            <button 
-              onClick={() => setFilterType('Serie')}
-              className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${filterType === 'Serie' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
-            >
-              <Tv size={14} /> Series
-            </button>
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Tipo Switch */}
+            <div className="flex items-center bg-neutral-900 p-1.5 rounded-xl border border-white/10">
+              <button 
+                onClick={() => setFilterType('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${filterType === 'all' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+              >
+                Todos
+              </button>
+              <button 
+                onClick={() => setFilterType('Película')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${filterType === 'Película' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+              >
+                <Film size={14} /> Películas
+              </button>
+              <button 
+                onClick={() => setFilterType('Serie')}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 ${filterType === 'Serie' ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400 hover:text-white'}`}
+              >
+                <Tv size={14} /> Series
+              </button>
+            </div>
           </div>
         </div>
 
+        {/* Géneros */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 no-scrollbar">
+          <Filter size={16} className="text-orange-500 flex-shrink-0 mr-1" />
+          {data?.genres?.map((genre: string) => (
+            <button
+              key={genre}
+              onClick={() => setSelectedGenre(genre)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedGenre === genre ? 'bg-white text-black shadow-lg font-black' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800 border border-white/5'}`}
+            >
+              {genre}
+            </button>
+          ))}
+        </div>
+
+        {/* Grid de títulos */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
           {filtered.map((item: any) => (
             <Link key={item.id} href={`/movies/${item.id}`} className="group relative flex flex-col bg-neutral-900 rounded-2xl overflow-hidden border border-white/5 hover:border-orange-500/50 transition-all duration-300 hover:-translate-y-1.5 shadow-xl">
@@ -96,6 +120,12 @@ export default function MoviesBrowsePage() {
             </Link>
           ))}
         </div>
+
+        {filtered.length === 0 && (
+          <div className="text-center py-20">
+            <p className="text-neutral-400 text-lg">No se encontraron títulos con los filtros seleccionados.</p>
+          </div>
+        )}
       </div>
     </main>
   );
