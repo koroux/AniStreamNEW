@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Navbar } from '@/components/navbar';
 import { supabase } from '@/lib/supabase';
-import { User, Mail, Shield, Check, Trophy, Clock, Camera, Save, Loader2, ArrowLeft } from 'lucide-react';
+import { User, Mail, Shield, Check, Trophy, Clock, Camera, Save, Loader2, ArrowLeft, Trash2, Play as PlayIcon } from 'lucide-react';
 import Link from 'next/link';
 
 const AVATAR_OPTIONS = [
@@ -28,6 +28,9 @@ export default function ProfilePage() {
   const [bio, setBio] = useState('');
   const [favoriteGenre, setFavoriteGenre] = useState('accion');
   const [selectedAvatar, setSelectedAvatar] = useState('luffy');
+
+  // Continuar viendo / Historial
+  const [continueWatching, setContinueWatching] = useState<any[]>([]);
 
   // Estadísticas del usuario
   const [stats, setStats] = useState({
@@ -57,13 +60,14 @@ export default function ProfilePage() {
       setFavoriteGenre(meta.favorite_genre || 'accion');
       setSelectedAvatar(meta.avatar_style || 'luffy');
 
-      // Cargar estadísticas desde Supabase
+      // Cargar estadísticas e historial desde Supabase
       try {
         if (currentUser.id) {
-          const [favRes, histRes, rateRes] = await Promise.all([
+          const [favRes, histRes, rateRes, historyDataRes] = await Promise.all([
             supabase.from('user_favorites').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id),
             supabase.from('user_history').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id),
             supabase.from('user_ratings').select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id),
+            supabase.from('user_history').select('anime_id, episode_number, anime_title, watched_at').eq('user_id', currentUser.id).order('watched_at', { ascending: false }).limit(10),
           ]);
 
           setStats({
@@ -71,9 +75,19 @@ export default function ProfilePage() {
             watchedCount: histRes.count || 0,
             ratingsCount: rateRes.count || 0,
           });
+
+          if (historyDataRes.data && historyDataRes.data.length > 0) {
+            const uniqueAnimes = new Map();
+            historyDataRes.data.forEach(item => {
+              if (!uniqueAnimes.has(item.anime_id)) {
+                uniqueAnimes.set(item.anime_id, item);
+              }
+            });
+            setContinueWatching(Array.from(uniqueAnimes.values()));
+          }
         }
       } catch (e) {
-        console.warn('Error loading stats:', e);
+        console.warn('Error loading stats/history:', e);
       } finally {
         setLoading(false);
       }
@@ -81,6 +95,23 @@ export default function ProfilePage() {
 
     loadProfile();
   }, [router]);
+
+  const handleClearHistory = async () => {
+    if (!user) return;
+    if (!confirm("¿Estás seguro de que deseas borrar todo tu historial de reproducción?")) return;
+
+    try {
+      await supabase
+        .from('user_history')
+        .delete()
+        .eq('user_id', user.id);
+
+      setContinueWatching([]);
+      setStats(prev => ({ ...prev, watchedCount: 0 }));
+    } catch (e) {
+      console.warn('Error clearing history:', e);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +129,7 @@ export default function ProfilePage() {
       };
 
       // 1. Actualizar en Supabase Auth
-      const { data, error } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         data: updatedMetadata,
       });
 
@@ -197,6 +228,56 @@ export default function ProfilePage() {
               <div className="text-lg md:text-2xl font-bold text-white">{stats.ratingsCount}</div>
               <div className="text-[10px] md:text-xs text-neutral-400">Calificaciones</div>
             </div>
+          </div>
+
+          {/* SECCIÓN CONTINUAR VIENDO & HISTORIAL */}
+          <div className="mt-8 pt-6 border-b border-white/5 pb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base md:text-lg font-bold text-white flex items-center gap-2">
+                <Clock size={18} className="text-orange-500" />
+                <span>Continuar Viendo & Historial</span>
+              </h2>
+
+              {continueWatching.length > 0 && (
+                <button
+                  onClick={handleClearHistory}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/10 hover:bg-red-600/20 text-red-400 border border-red-500/30 rounded-xl text-xs font-bold transition-all active:scale-95"
+                  title="Borrar historial de reproducción"
+                >
+                  <Trash2 size={14} />
+                  <span>Borrar Historial</span>
+                </button>
+              )}
+            </div>
+
+            {continueWatching.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {continueWatching.map((item) => (
+                  <Link
+                    key={item.anime_id}
+                    href={`/anime/${item.anime_id}`}
+                    className="group flex items-center justify-between p-3.5 bg-neutral-900/80 hover:bg-neutral-800 border border-white/5 hover:border-orange-500/40 rounded-2xl transition-all shadow-md active:scale-98"
+                  >
+                    <div className="flex flex-col min-w-0 pr-3">
+                      <span className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors truncate">
+                        {item.anime_title || item.anime_id}
+                      </span>
+                      <span className="text-xs text-orange-500 font-semibold mt-0.5">
+                        Episodio {item.episode_number}
+                      </span>
+                    </div>
+
+                    <div className="w-9 h-9 rounded-full bg-orange-600 group-hover:bg-orange-500 text-white flex items-center justify-center flex-shrink-0 shadow-lg group-hover:scale-110 transition-transform">
+                      <PlayIcon size={14} className="ml-0.5 fill-current" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-neutral-500 italic bg-neutral-950/40 p-4 rounded-2xl border border-white/5 text-center">
+                No tienes animes recientes en tu historial de reproducción.
+              </p>
+            )}
           </div>
 
           {/* FORMULARIO DE PERSONALIZACIÓN */}
