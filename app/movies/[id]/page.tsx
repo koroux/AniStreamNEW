@@ -95,8 +95,9 @@ export default function MovieDetailPage() {
 
   let currentEmbedUrl = currentServer.url;
   if (isSerie) {
-    if (currentEmbedUrl.includes('/tv/')) {
-      // vidsrc.to/embed/tv/ID/SEASON/EPISODE
+    if (currentEmbedUrl.includes('season=')) {
+      currentEmbedUrl = currentEmbedUrl.replace(/episode=\d+/, `episode=${selectedEp}`);
+    } else if (currentEmbedUrl.includes('/tv/')) {
       currentEmbedUrl = currentEmbedUrl.replace(/\/\d+\/\d+$/, `/1/${selectedEp}`);
     } else if (currentEmbedUrl.includes('multiembed.mov')) {
       currentEmbedUrl = currentEmbedUrl.includes('&s=') 
