@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
-import { Play, Plus, Check, Loader2, Star, ArrowLeft, Tv, Film } from 'lucide-react';
+import { Play, Plus, Check, Loader2, Star, ArrowLeft, Tv, Film, Server } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function MovieDetailPage() {
@@ -18,6 +18,7 @@ export default function MovieDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [selectedEp, setSelectedEp] = useState<number>(1);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [selectedServer, setSelectedServer] = useState<number>(0);
 
   useEffect(() => {
     const init = async () => {
@@ -78,10 +79,16 @@ export default function MovieDetailPage() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold">Título no encontrado</h1>
-        <button onClick={() => router.back()} className="bg-orange-600 px-6 py-2.5 rounded-xl font-bold">Volver</button>
+        <Link href="/movies/home" className="bg-orange-600 px-6 py-2.5 rounded-xl font-bold">Volver al Inicio</Link>
       </div>
     );
   }
+
+  const servers = [
+    { name: 'Servidor 1 (VidSrc VIP)', url: `https://vidsrc.xyz/embed/${item.type === 'Serie' ? 'tv' : 'movie'}?imdb=${id}&season=1&episode=${selectedEp}` },
+    { name: 'Servidor 2 (MultiEmbed HD)', url: `https://multiembed.mov/?video_id=${id}&tmdb=1&s=1&e=${selectedEp}` },
+    { name: 'Servidor 3 (VidSrc.to)', url: `https://vidsrc.to/embed/${item.type === 'Serie' ? 'tv' : 'movie'}/${id}/${selectedEp}` }
+  ];
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pb-24">
@@ -97,18 +104,36 @@ export default function MovieDetailPage() {
 
       {/* REPRODUCTOR O BANNER */}
       {isPlaying ? (
-        <div className="w-full h-[80vh] bg-black pt-20 relative flex flex-col items-center justify-center">
-          <button 
-            onClick={() => setIsPlaying(false)}
-            className="absolute top-24 left-6 z-30 bg-black/70 hover:bg-black text-white px-4 py-2 rounded-xl flex items-center gap-2 backdrop-blur-md border border-white/10"
-          >
-            <ArrowLeft size={18} /> Volver a sinopsis
-          </button>
+        <div className="w-full min-h-[85vh] bg-black pt-20 relative flex flex-col items-center justify-center">
+          <div className="w-full container mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 z-30">
+            <button 
+              onClick={() => setIsPlaying(false)}
+              className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 backdrop-blur-md border border-white/10"
+            >
+              <ArrowLeft size={18} /> Volver a sinopsis
+            </button>
+
+            {/* Selector de Servidores */}
+            <div className="flex items-center gap-2 bg-neutral-900/90 p-1.5 rounded-2xl border border-white/10 overflow-x-auto max-w-full">
+              <span className="text-xs font-bold text-neutral-400 px-2 flex items-center gap-1">
+                <Server size={14} className="text-orange-500" /> Servidores:
+              </span>
+              {servers.map((server, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setSelectedServer(idx)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedServer === idx ? 'bg-orange-600 text-white shadow-md' : 'text-neutral-400 hover:text-white bg-white/5'}`}
+                >
+                  {server.name}
+                </button>
+              ))}
+            </div>
+          </div>
           
-          <div className="w-full h-full container mx-auto px-6 py-6">
+          <div className="w-full h-[72vh] container mx-auto px-6 pb-6">
             <iframe 
-              src={`https://vidsrc.xyz/embed/${item.type === 'Serie' ? 'tv' : 'movie'}?imdb=${id}&season=1&episode=${selectedEp}`}
-              className="w-full h-full rounded-2xl border border-white/10 shadow-2xl"
+              src={servers[selectedServer].url}
+              className="w-full h-full rounded-2xl border border-white/10 shadow-2xl bg-neutral-950"
               allowFullScreen
             />
           </div>
