@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown, ChevronLeft, ChevronRight, Moon, Sun, Search as SearchIcon, ShieldAlert, Maximize, Download } from 'lucide-react';
+import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown, ChevronLeft, ChevronRight, Moon, Sun, Search as SearchIcon, ShieldAlert, Maximize, Download, Star } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
 import { NativeVideoPlayer } from '@/components/native-video-player';
@@ -36,6 +36,12 @@ export default function AnimeDetail() {
   // --- FAVORITOS (NUEVO) ---
   const [isFavorite, setIsFavorite] = useState(false);
   const [loadingFav, setLoadingFav] = useState(false);
+
+  // --- CALIFICACIÓN / RATING ---
+  const [userRating, setUserRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+  const [savingRating, setSavingRating] = useState(false);
+  const [ratingStats, setRatingStats] = useState<{ avg: number; count: number }>({ avg: 4.8, count: 124 });
 
   // --- TEMPORADAS ---
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
@@ -164,10 +170,66 @@ export default function AnimeDetail() {
           .single();
         
         if (favData) setIsFavorite(true);
+
+        // C. Cargar Calificación del Usuario
+        const { data: rateData } = await supabase
+          .from('user_ratings')
+          .select('rating')
+          .eq('user_id', currentUser.id)
+          .eq('anime_id', id)
+          .single();
+        
+        if (rateData?.rating) setUserRating(rateData.rating);
+      }
+
+      // Cargar promedio general de calificaciones para este anime
+      try {
+        const { data: allRatings } = await supabase
+          .from('user_ratings')
+          .select('rating')
+          .eq('anime_id', id);
+
+        if (allRatings && allRatings.length > 0) {
+          const total = allRatings.reduce((acc, curr) => acc + (curr.rating || 0), 0);
+          const avg = Number((total / allRatings.length).toFixed(1));
+          setRatingStats({ avg, count: allRatings.length });
+        }
+      } catch (err) {
+        // fallback a rating por defecto
       }
     };
     loadUserData();
   }, [id]);
+
+  // --- LÓGICA DE CALIFICACIÓN (1 a 5 ESTRELLAS) ---
+  const handleRate = async (stars: number) => {
+    if (!user) {
+      alert("Inicia sesión para calificar este anime.");
+      return;
+    }
+    setSavingRating(true);
+    setUserRating(stars);
+
+    try {
+      await supabase.from('user_ratings').upsert({
+        user_id: user.id,
+        anime_id: id,
+        anime_title: info?.title || id,
+        rating: stars,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id,anime_id' });
+
+      // Actualizar stats locales
+      setRatingStats(prev => ({
+        avg: Number(((prev.avg * prev.count + stars) / (prev.count + 1)).toFixed(1)),
+        count: prev.count + 1,
+      }));
+    } catch (e) {
+      console.warn('Error saving rating:', e);
+    } finally {
+      setSavingRating(false);
+    }
+  };
 
   // --- LÓGICA DEL BOTÓN FAVORITOS (NUEVO) ---
   const toggleFavorite = async () => {
@@ -476,7 +538,47 @@ export default function AnimeDetail() {
             <div className={`p-6 md:p-8 bg-[#0a0a0a] border-b border-gray-900 transition-opacity duration-300 ${
               isCinemaMode ? 'opacity-20 hover:opacity-100' : 'opacity-100'
             }`}>
-              <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{info?.title}</h1>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+                <h1 className="text-2xl md:text-3xl font-black text-white">{info?.title}</h1>
+
+                {/* SISTEMA DE CALIFICACIÓN / RATING INTERACTIVO */}
+                <div className="flex items-center gap-2 bg-neutral-900/90 border border-white/10 px-3 py-1.5 rounded-2xl self-start sm:self-auto shadow-md">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const isFilled = (hoverRating || userRating) >= star;
+                      return (
+                        <button
+                          key={star}
+                          type="button"
+                          disabled={savingRating}
+                          onMouseEnter={() => setHoverRating(star)}
+                          onMouseLeave={() => setHoverRating(0)}
+                          onClick={() => handleRate(star)}
+                          className="p-0.5 transition-transform hover:scale-125 active:scale-95 text-neutral-600 focus:outline-none"
+                          title={`Calificar con ${star} estrellas`}
+                        >
+                          <Star
+                            size={18}
+                            className={isFilled ? 'text-yellow-400 fill-yellow-400' : 'text-neutral-600'}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="border-l border-white/10 pl-2 flex items-center gap-1.5 text-xs">
+                    <span className="font-bold text-white">{ratingStats.avg}</span>
+                    <span className="text-[10px] text-neutral-500">({ratingStats.count})</span>
+                  </div>
+
+                  {userRating > 0 && (
+                    <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-1.5 py-0.2 rounded font-semibold ml-1">
+                      Tu voto: {userRating}★
+                    </span>
+                  )}
+                </div>
+              </div>
+
               {currentEp && <p className="text-orange-500 font-bold text-sm mb-4">Viendo: S{currentEp.season || 1} E{currentEp.number}</p>}
               
               <div className="flex flex-wrap items-center gap-4 text-sm text-gray-400 mb-6">

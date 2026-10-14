@@ -7,9 +7,10 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const genre = searchParams.get('genre') || 'all';
   const order = searchParams.get('order') || 'recent';
+  const page = searchParams.get('page') || '1';
 
   try {
-    let targetUrl = `https://tioanime.com/directorio?sort=${order}`;
+    let targetUrl = `https://tioanime.com/directorio?sort=${order}&p=${page}`;
     if (genre !== 'all') {
       targetUrl += `&genero%5B%5D=${genre}`;
     }
@@ -44,7 +45,23 @@ export async function GET(request: Request) {
       }
     });
 
-    return NextResponse.json(animes);
+    // Extraer número total de páginas de la paginación si existe
+    let totalPages = 1;
+    $('.pagination .page-item a').each((_, a) => {
+      const href = $(a).attr('href') || '';
+      const pMatch = href.match(/p=(\d+)/);
+      if (pMatch && pMatch[1]) {
+        const pNum = parseInt(pMatch[1], 10);
+        if (pNum > totalPages) totalPages = pNum;
+      }
+    });
+
+    return NextResponse.json({
+      animes,
+      currentPage: parseInt(page, 10) || 1,
+      totalPages: Math.max(totalPages, 1),
+      hasMore: animes.length > 0 && (parseInt(page, 10) || 1) < totalPages
+    });
 
   } catch (error) {
     console.error('Error browse API:', error);

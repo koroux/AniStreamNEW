@@ -127,9 +127,15 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
                         <p className="text-sm text-white font-bold truncate">{user?.user_metadata?.full_name || user?.name || "Usuario"}</p>
                         <p className="text-xs text-gray-500 truncate">{user?.email || "Miembro"}</p>
                       </div>
+                      <Link 
+                        href="/profile"
+                        className="w-full text-left px-4 py-2.5 text-sm text-neutral-300 hover:text-white hover:bg-white/5 flex items-center gap-2 transition-colors border-b border-white/5"
+                      >
+                        <User size={15} className="text-orange-500" /> Mi Perfil
+                      </Link>
                       <button 
                         onClick={handleLogout}
-                        className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-white/5 flex items-center gap-2 transition-colors first-letter:rounded-b-xl"
+                        className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-white/5 flex items-center gap-2 transition-colors rounded-b-xl"
                       >
                         <LogOut size={14} /> Cerrar Sesión
                       </button>
@@ -167,7 +173,10 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
               <MobileLink href="/home" onClick={() => setIsMobileMenuOpen(false)} icon={<Play size={20}/>}>Inicio</MobileLink>
               <MobileLink href="/browse" onClick={() => setIsMobileMenuOpen(false)} icon={<Filter size={20}/>}>Explorar Géneros</MobileLink>
               {!isGuest && (
-                 <MobileLink href="/favorites" onClick={() => setIsMobileMenuOpen(false)} icon={<Trophy size={20} className="text-purple-500"/>}>Mi Lista</MobileLink>
+                 <>
+                   <MobileLink href="/favorites" onClick={() => setIsMobileMenuOpen(false)} icon={<Trophy size={20} className="text-purple-500"/>}>Mi Lista</MobileLink>
+                   <MobileLink href="/profile" onClick={() => setIsMobileMenuOpen(false)} icon={<User size={20} className="text-orange-500"/>}>Mi Perfil</MobileLink>
+                 </>
               )}
               <div className="my-4 border-t border-white/10"></div>
               {isGuest ? (
