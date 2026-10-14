@@ -35,9 +35,19 @@ export default function FavoritesPage() {
         console.error('Error cargando favoritos:', error);
       } else if (data) {
         const sanitized = await Promise.all(data.map(async (fav) => {
-          const p = `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`;
-          if (fav.poster !== p) {
-            await supabase.from('user_favorites').update({ poster: p }).eq('user_id', parsedUser.id).eq('anime_id', fav.anime_id);
+          let p = fav.poster;
+          if (!p || p.includes('logo') || !p.startsWith('http')) {
+            try {
+              const infoRes = await fetch(`/api/info?id=${fav.anime_id}`);
+              const infoData = await infoRes.json();
+              if (infoData && infoData.poster) {
+                p = infoData.poster;
+                await supabase.from('user_favorites').update({ poster: p }).eq('user_id', parsedUser.id).eq('anime_id', fav.anime_id);
+              }
+            } catch (e) {}
+          }
+          if (!p) {
+            p = `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`;
           }
           return { ...fav, poster: p };
         }));

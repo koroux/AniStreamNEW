@@ -64,9 +64,21 @@ function HomeContent() {
     loadContent();
   }, [query]);
 
-  // Rotación automática del anime destacado cada 9 segundos
+  // Rotación automática del anime destacado cada 9 segundos y precarga a los 7 segundos
   useEffect(() => {
     if (!homeData?.trending || homeData.trending.length <= 1) return;
+    
+    // Precarga (prefetching) del siguiente anime a los 7 segundos (2s antes de rotar)
+    const prefetchTimer = setTimeout(() => {
+      const nextIdx = (currentIndex + 1) % homeData.trending.length;
+      const nextSelected = homeData.trending[nextIdx];
+      if (nextSelected) {
+        fetch(`/api/info?id=${nextSelected.id}`).then(r => r.json()).catch(() => {});
+        const img = new Image();
+        img.src = nextSelected.poster || `https://tioanime.com/uploads/thumbs/${nextSelected.id}.jpg`;
+      }
+    }, 7000);
+
     const interval = setInterval(async () => {
       setCurrentIndex(prev => {
         const nextIdx = (prev + 1) % homeData.trending.length;
@@ -83,8 +95,11 @@ function HomeContent() {
       });
     }, 9000);
 
-    return () => clearInterval(interval);
-  }, [homeData]);
+    return () => {
+      clearTimeout(prefetchTimer);
+      clearInterval(interval);
+    };
+  }, [homeData, currentIndex]);
 
   const handleSelectIndex = async (idx: number) => {
     if (!homeData?.trending) return;
