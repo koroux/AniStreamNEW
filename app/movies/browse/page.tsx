@@ -4,15 +4,22 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
 import { Loader2, Film, Tv, Star, Play, Filter } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 export default function MoviesBrowsePage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<'all' | 'Película' | 'Serie'>('all');
   const [selectedGenre, setSelectedGenre] = useState<string>('Todos');
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    const fetchBrowse = async () => {
+    const init = async () => {
+      const savedUser = localStorage.getItem('userData');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+
       try {
         const res = await fetch('/api/movies/browse');
         const json = await res.json();
@@ -23,15 +30,15 @@ export default function MoviesBrowsePage() {
         setLoading(false);
       }
     };
-    fetchBrowse();
+    init();
   }, []);
 
-  const allItems = [...(data?.movies || []), ...(data?.series || []), ...(data?.trending || [])];
+  const allItems = [...(data?.movies || []), ...(data?.series || [])];
   const uniqueItems = Array.from(new Map(allItems.map(item => [item.id, item])).values());
   
   const filtered = uniqueItems.filter((item: any) => {
     const matchesType = filterType === 'all' || item.type === filterType;
-    const matchesGenre = selectedGenre === 'Todos' || item.genre === selectedGenre;
+    const matchesGenre = selectedGenre === 'Todos' || (item.genres && item.genres.includes(selectedGenre)) || item.genre === selectedGenre;
     return matchesType && matchesGenre;
   });
 
@@ -45,7 +52,7 @@ export default function MoviesBrowsePage() {
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pb-24">
-      <Navbar />
+      <Navbar user={user} isGuest={!user} />
 
       <div className="container mx-auto px-6 pt-32">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
@@ -80,18 +87,20 @@ export default function MoviesBrowsePage() {
         </div>
 
         {/* Géneros */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 no-scrollbar">
-          <Filter size={16} className="text-orange-500 flex-shrink-0 mr-1" />
-          {data?.genres?.map((genre: string) => (
-            <button
-              key={genre}
-              onClick={() => setSelectedGenre(genre)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedGenre === genre ? 'bg-white text-black shadow-lg font-black' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800 border border-white/5'}`}
-            >
-              {genre}
-            </button>
-          ))}
-        </div>
+        {data?.genres && data.genres.length > 0 && (
+          <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 no-scrollbar">
+            <Filter size={16} className="text-orange-500 flex-shrink-0 mr-1" />
+            {data.genres.map((genre: string) => (
+              <button
+                key={genre}
+                onClick={() => setSelectedGenre(genre)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${selectedGenre === genre ? 'bg-white text-black shadow-lg font-black' : 'bg-neutral-900 text-neutral-300 hover:bg-neutral-800 border border-white/5'}`}
+              >
+                {genre}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Grid de títulos */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">

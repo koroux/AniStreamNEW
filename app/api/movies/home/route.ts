@@ -2,104 +2,91 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  // Catálogo curado impecable, libre de anuncios y banners promocionales, con sus IDs exactos
-  const curatedMovies = [
-    {
-      id: 'dune-part-two',
-      title: 'Duna: Parte Dos',
-      poster: 'https://image.tmdb.org/t/p/w500/8b8R8l88Qje9dn9OE8PY05NxlIF.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/xOMo8DxX7P6bPCtqg6p9sW31yv7.jpg',
-      rating: '4.9',
-      type: 'Película',
-      quality: '4K UHD'
-    },
-    {
-      id: 'deadpool-and-wolverine',
-      title: 'Deadpool y Wolverine',
-      poster: 'https://image.tmdb.org/t/p/w500/8cdWjvZQUExUUTzyp4t6EDMubfO.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/y2Ca1neKke2mGPMaHzlCDNVPnsK.jpg',
-      rating: '4.8',
-      type: 'Película',
-      quality: '1080p HD'
-    },
-    {
-      id: 'interstellar',
-      title: 'Interestelar',
-      poster: 'https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/rAiYTfKGqDCRIIqo664sY9XZIvQ.jpg',
-      rating: '4.9',
-      type: 'Película',
-      quality: '1080p HD'
-    },
-    {
-      id: 'the-batman',
-      title: 'The Batman',
-      poster: 'https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50r9T25onhq.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/5hNEdNSboScUPwm8g2F3s6G2A5l.jpg',
-      rating: '4.8',
-      type: 'Película',
-      quality: '1080p HD'
-    },
-    {
-      id: 'oppenheimer',
-      title: 'Oppenheimer',
-      poster: 'https://image.tmdb.org/t/p/w500/8Gxv8gSFCU0XGDykEGv7zR1n2ua.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/fm6KqXpk3M2HVveHwCrBSSBaO0V.jpg',
-      rating: '4.9',
-      type: 'Película',
-      quality: '4K UHD'
-    },
-    {
-      id: 'the-last-of-us',
-      title: 'The Last of Us',
-      poster: 'https://image.tmdb.org/t/p/w500/uKvVjHNqB5VmOrdxqAt2F7J78ED.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/uDgy6hyPd82kOHh6I95FLtLnj6p.jpg',
-      rating: '4.9',
-      type: 'Serie',
-      quality: '1080p HD'
-    },
-    {
-      id: 'stranger-things',
-      title: 'Stranger Things',
-      poster: 'https://image.tmdb.org/t/p/w500/49WJfeN0moxb9IPfGn8AIqMGskD.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/56v2KjBlU4XaOv9rVYEQypROD7P.jpg',
-      rating: '4.9',
-      type: 'Serie',
-      quality: '4K UHD'
-    },
-    {
-      id: 'breaking-bad',
-      title: 'Breaking Bad',
-      poster: 'https://image.tmdb.org/t/p/w500/ggFHVNu6YYI5L9pCfOacjizRGt.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/tsRy63Mu5cu8etL1X7ZLyf7UP1M.jpg',
-      rating: '4.9',
-      type: 'Serie',
-      quality: '1080p HD'
-    },
-    {
-      id: 'house-of-the-dragon',
-      title: 'La Casa del Dragón',
-      poster: 'https://image.tmdb.org/t/p/w500/z2yahl2uefxDCl0nogcRBstwruJ.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/etp0kzncgDBg4Uo5C8A6QJ8nO6E.jpg',
-      rating: '4.8',
-      type: 'Serie',
-      quality: '1080p HD'
-    },
-    {
-      id: 'the-boys',
-      title: 'The Boys',
-      poster: 'https://image.tmdb.org/t/p/w500/2zmTngn1tYC1AvkgvFLhVMi6PWY.jpg',
-      banner: 'https://image.tmdb.org/t/p/w1280/mYnpKiwcUiaF9Z7d425kUq2Wd1t.jpg',
-      rating: '4.8',
-      type: 'Serie',
-      quality: '1080p HD'
-    }
-  ];
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+}
 
-  return NextResponse.json({
-    trending: curatedMovies.slice(0, 5),
-    newReleases: curatedMovies,
-    series: curatedMovies.filter(m => m.type === 'Serie')
-  });
+export async function GET() {
+  const token = process.env.TMDB_READ_TOKEN;
+  if (!token) {
+    return NextResponse.json({ error: 'TMDB_READ_TOKEN is not configured' }, { status: 500 });
+  }
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Accept': 'application/json'
+  };
+
+  try {
+    const [trendingMovieRes, trendingTvRes, nowPlayingRes, onAirRes, topMovieRes] = await Promise.all([
+      fetch('https://api.themoviedb.org/3/trending/movie/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
+      fetch('https://api.themoviedb.org/3/trending/tv/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
+      fetch('https://api.themoviedb.org/3/movie/now_playing?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
+      fetch('https://api.themoviedb.org/3/tv/on_the_air?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
+      fetch('https://api.themoviedb.org/3/movie/top_rated?language=es-ES', { headers, signal: AbortSignal.timeout(8000) })
+    ]);
+
+    const formatItem = (item: any, typeOverride?: 'Película' | 'Serie') => {
+      const title = item.title || item.name || 'Sin título';
+      const type = typeOverride || (item.name || item.first_air_date ? 'Serie' : 'Película');
+      return {
+        id: generateSlug(title),
+        tmdbId: item.id,
+        title,
+        type,
+        poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',
+        banner: item.backdrop_path ? `https://image.tmdb.org/t/p/w1280${item.backdrop_path}` : (item.poster_path ? `https://image.tmdb.org/t/p/w1280${item.poster_path}` : ''),
+        synopsis: item.overview || 'Sinopsis no disponible.',
+        rating: typeof item.vote_average === 'number' ? item.vote_average.toFixed(1) : '4.8'
+      };
+    };
+
+    let trendingMovies: any[] = [];
+    let trendingTv: any[] = [];
+    let nowPlaying: any[] = [];
+    let onAir: any[] = [];
+    let topMovies: any[] = [];
+
+    if (trendingMovieRes.ok) {
+      const data = await trendingMovieRes.json();
+      trendingMovies = (data.results || []).map((m: any) => formatItem(m, 'Película'));
+    }
+    if (trendingTvRes.ok) {
+      const data = await trendingTvRes.json();
+      trendingTv = (data.results || []).map((tv: any) => formatItem(tv, 'Serie'));
+    }
+    if (nowPlayingRes.ok) {
+      const data = await nowPlayingRes.json();
+      nowPlaying = (data.results || []).map((m: any) => formatItem(m, 'Película'));
+    }
+    if (onAirRes.ok) {
+      const data = await onAirRes.json();
+      onAir = (data.results || []).map((tv: any) => formatItem(tv, 'Serie'));
+    }
+    if (topMovieRes.ok) {
+      const data = await topMovieRes.json();
+      topMovies = (data.results || []).map((m: any) => formatItem(m, 'Película'));
+    }
+
+    const trending = [...trendingMovies.slice(0, 5), ...trendingTv.slice(0, 5)];
+    const movies = [...nowPlaying, ...topMovies];
+    const series = onAir;
+
+    return NextResponse.json({
+      trending,
+      movies,
+      series,
+      newReleases: [...nowPlaying.slice(0, 10), ...onAir.slice(0, 10)]
+    });
+
+  } catch (err) {
+    console.error('Error fetching TMDB home data:', err);
+    return NextResponse.json({ error: 'Error al conectar con TMDB' }, { status: 500 });
+  }
 }
