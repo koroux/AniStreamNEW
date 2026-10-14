@@ -110,7 +110,24 @@ export async function GET(request: Request) {
         })
     );
 
-    return NextResponse.json({ servers });
+    // Extraer enlaces oficiales de descarga del sitio (ej. Mega)
+    const downloadLinks: any[] = [];
+    const tableMatch = html.match(/<table[^>]*table-downloads[^>]*>([\s\S]*?)<\/table>/i);
+    if (tableMatch && tableMatch[1]) {
+      const rows = tableMatch[1].match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+      rows.forEach(tr => {
+        const serverMatch = tr.match(/<td>([^<]+)<\/td>/i);
+        const linkMatch = tr.match(/href="([^"]+)"/i);
+        if (serverMatch && linkMatch && linkMatch[1]) {
+          downloadLinks.push({
+            server: serverMatch[1].trim(),
+            url: linkMatch[1]
+          });
+        }
+      });
+    }
+
+    return NextResponse.json({ servers, downloadLinks });
 
   } catch (error) {
     console.error('Error Video API:', error);

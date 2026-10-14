@@ -19,6 +19,8 @@ export default function AnimeDetail() {
   
   const [currentEp, setCurrentEp] = useState<any>(null);
   const [serverList, setServerList] = useState<any[]>([]); 
+  const [downloadLinks, setDownloadLinks] = useState<any[]>([]);
+  const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const [loadingVideo, setLoadingVideo] = useState(false);
 
@@ -119,6 +121,7 @@ export default function AnimeDetail() {
            try {
              const res = await fetch(`/api/video?id=${id}&ep=${episode.number}`);
              const resData = await res.json();
+             if (resData.downloadLinks) setDownloadLinks(resData.downloadLinks);
              if (resData.servers && resData.servers.length > 0) {
                setServerList(resData.servers);
                const directServer = resData.servers.find((s: any) => s.isDirect && s.url.startsWith('http') && (s.url.includes('.m3u8') || s.url.endsWith('.mp4')));
@@ -335,6 +338,7 @@ export default function AnimeDetail() {
     try {
       const res = await fetch(`/api/video?id=${id}&ep=${episode.number}`);
       const data = await res.json();
+      if (data.downloadLinks) setDownloadLinks(data.downloadLinks);
       if (data.servers && data.servers.length > 0) {
         setServerList(data.servers);
         const directServer = data.servers.find((s: any) => s.isDirect && s.url.startsWith('http') && (s.url.includes('.m3u8') || s.url.endsWith('.mp4')));
@@ -623,18 +627,14 @@ export default function AnimeDetail() {
 
                  {/* BOTÓN DESCARGA (SOLO USUARIOS CON CUENTA) */}
                  {user ? (
-                   currentVideoUrl && (
-                     <a
-                       href={currentVideoUrl}
-                       target="_blank"
-                       rel="noopener noreferrer"
-                       className="px-4 py-2.5 rounded-md text-sm font-bold uppercase flex items-center gap-2 transition-all bg-neutral-900 border border-neutral-700 hover:border-orange-500 hover:text-orange-400 text-neutral-300 active:scale-95 shadow-sm"
-                       title="Abrir enlace de descarga directa del servidor"
-                     >
-                       <Download size={16} className="text-orange-500" />
-                       <span>Descargar</span>
-                     </a>
-                   )
+                   <button
+                     onClick={() => setIsDownloadModalOpen(true)}
+                     className="px-4 py-2.5 rounded-md text-sm font-bold uppercase flex items-center gap-2 transition-all bg-neutral-900 border border-neutral-700 hover:border-orange-500 hover:text-orange-400 text-neutral-300 active:scale-95 shadow-sm"
+                     title="Opciones de descarga directa para este episodio"
+                   >
+                     <Download size={16} className="text-orange-500" />
+                     <span>Descargar</span>
+                   </button>
                  ) : (
                    <Link
                      href="/"
@@ -798,6 +798,81 @@ export default function AnimeDetail() {
 
         </div>
       </main>
+
+      {/* MODAL DE DESCARGA DIRECTA (SOLO USUARIOS REGISTRADOS) */}
+      {isDownloadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#121212] border border-white/10 rounded-3xl w-full max-w-md p-6 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-4 border-b border-white/5 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-orange-600/20 text-orange-500 border border-orange-500/30 flex items-center justify-center">
+                  <Download size={18} />
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base">Descargar Episodio</h3>
+                  <p className="text-xs text-neutral-400">
+                    {info?.title} • <span className="text-orange-500 font-semibold">Ep. {currentEp?.number}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsDownloadModalOpen(false)}
+                className="text-neutral-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-neutral-300 leading-relaxed mb-4">
+              Selecciona una de las fuentes de descarga disponibles para guardar el archivo en tu dispositivo:
+            </p>
+
+            <div className="space-y-2.5 mb-5">
+              {/* Opción 1: Enlaces oficiales de descarga (ej. Mega) */}
+              {downloadLinks.length > 0 && downloadLinks.map((dl, idx) => (
+                <a
+                  key={idx}
+                  href={dl.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between p-3.5 bg-neutral-900 hover:bg-neutral-800 border border-emerald-500/30 rounded-2xl transition-all group active:scale-98"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <div>
+                      <span className="text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">
+                        Descarga {dl.server}
+                      </span>
+                      <p className="text-[11px] text-neutral-400">Servidor directo en la nube (MP4/Full HD)</p>
+                    </div>
+                  </div>
+                  <span className="text-xs bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-1 rounded-xl border border-emerald-500/30 group-hover:bg-emerald-500 group-hover:text-white transition-colors">
+                    Descargar
+                  </span>
+                </a>
+              ))}
+
+              {/* Opción 2: Descarga desde Brave / Navegador */}
+              <div className="p-3.5 bg-neutral-900/60 border border-white/5 rounded-2xl">
+                <div className="flex items-center gap-2 text-xs font-bold text-orange-400 mb-1">
+                  <ShieldAlert size={14} />
+                  <span>En tu teléfono (con Brave):</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-normal">
+                  Al reproducir el video en pantalla completa, mantén presionado el reproductor o toca el menú de Brave y selecciona <strong className="text-white">&ldquo;Descargar video&rdquo;</strong> para guardarlo directamente en tu galería.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsDownloadModalOpen(false)}
+              className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-xs font-bold transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      )}
       
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
