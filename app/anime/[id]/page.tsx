@@ -44,22 +44,48 @@ export default function AnimeDetail() {
   // --- REFERENCIA AL REPRODUCTOR PARA PANTALLA COMPLETA ---
   const playerContainerRef = useRef<HTMLDivElement>(null);
 
-  const toggleFullscreen = () => {
+  const toggleFullscreen = async () => {
     const el = playerContainerRef.current as any;
     if (!el) return;
 
-    if (!document.fullscreenElement) {
-      if (el.requestFullscreen) {
-        el.requestFullscreen();
-      } else if (el.webkitRequestFullscreen) {
-        el.webkitRequestFullscreen();
-      } else if (el.msRequestFullscreen) {
-        el.msRequestFullscreen();
+    try {
+      if (!document.fullscreenElement) {
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          await el.webkitRequestFullscreen();
+        } else if (el.msRequestFullscreen) {
+          await el.msRequestFullscreen();
+        }
+
+        // Si el dispositivo soporta Screen Orientation API, forzamos horizontal (landscape)
+        if (typeof window !== 'undefined' && 'screen' in window && 'orientation' in window.screen) {
+          const orientation = window.screen.orientation as any;
+          if (orientation && orientation.lock) {
+            orientation.lock('landscape').catch(() => {
+              // Si el navegador no permite lock automático, el usuario rota manualmente
+            });
+          }
+        }
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        }
+
+        // Liberar el bloqueo de rotación al salir
+        if (typeof window !== 'undefined' && 'screen' in window && 'orientation' in window.screen) {
+          const orientation = window.screen.orientation as any;
+          if (orientation && orientation.unlock) {
+            try {
+              orientation.unlock();
+            } catch (e) {
+              // Ignore
+            }
+          }
+        }
       }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
+    } catch (err) {
+      console.warn('Error en fullscreen / orientation:', err);
     }
   };
 
