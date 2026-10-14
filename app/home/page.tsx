@@ -85,6 +85,26 @@ function HomeContent() {
     loadContent();
   }, [query]);
 
+  // Rotación automática del anime destacado cada 9 segundos
+  useEffect(() => {
+    if (!homeData?.trending || homeData.trending.length <= 1) return;
+    const interval = setInterval(async () => {
+      const randomIndex = Math.floor(Math.random() * homeData.trending.length);
+      const randomFeatured = homeData.trending[randomIndex];
+      try {
+        const infoRes = await fetch(`/api/info?id=${randomFeatured.id}`);
+        const infoData = await infoRes.json();
+        if (infoData && infoData.id) {
+          setFeaturedAnime({ ...infoData, image: infoData.poster });
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 9000);
+
+    return () => clearInterval(interval);
+  }, [homeData]);
+
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pb-20">
       <Navbar />

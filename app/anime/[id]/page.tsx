@@ -430,17 +430,23 @@ export default function AnimeDetail() {
                 </span>
                 {serverList.map((server, idx) => {
                   const isServerDirect = server.isDirect && server.url.startsWith('http') && !server.url.includes('novideo') && (server.url.includes('.m3u8') || server.url.endsWith('.mp4'));
+                  const isHD = server.name.toLowerCase().includes('voe') || server.name.toLowerCase().includes('streamsb') || server.name.toLowerCase().includes('vidguard');
                   return (
                     <button
                       key={idx}
                       onClick={() => setCurrentVideoUrl(server.url)}
-                      className={`px-3 py-1 rounded-sm text-xs font-bold uppercase tracking-wide transition-colors flex-shrink-0 flex items-center gap-1.5 ${
+                      className={`px-3 py-1.5 rounded-md text-xs font-bold uppercase tracking-wide transition-colors flex-shrink-0 flex items-center gap-1.5 ${
                         currentVideoUrl === server.url
-                          ? 'bg-orange-600 text-white'
-                          : 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700'
+                          ? 'bg-orange-600 text-white shadow-md'
+                          : 'bg-neutral-800 text-neutral-300 hover:text-white hover:bg-neutral-700'
                       }`}
                     >
                       <span>{server.name}</span>
+                      {isHD && (
+                        <span className="text-[9px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/30 font-black">
+                          HD
+                        </span>
+                      )}
                       {isServerDirect && (
                         <span className="text-[9px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded border border-green-500/30 font-semibold lowercase">
                           sin anuncios
