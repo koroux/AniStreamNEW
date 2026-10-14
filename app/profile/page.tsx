@@ -92,18 +92,18 @@ export default function ProfilePage() {
           if (favsDataRes.data) {
             const sanitizedFavs = await Promise.all(favsDataRes.data.map(async (fav) => {
               let p = fav.poster;
-              if (!p || p.includes('logo') || !p.startsWith('http')) {
+              if (!p || p.includes('logo') || p.includes('banner') || !p.startsWith('http')) {
                 try {
-                  const infoRes = await fetch(`/api/info?id=${fav.anime_id}`);
-                  const infoData = await infoRes.json();
-                  if (infoData && infoData.poster) {
-                    p = infoData.poster;
+                  const searchRes = await fetch(`/api/search?q=${encodeURIComponent(fav.anime_id)}`);
+                  const searchData = await searchRes.json();
+                  if (Array.isArray(searchData) && searchData.length > 0 && searchData[0].poster && !searchData[0].poster.includes('logo')) {
+                    p = searchData[0].poster;
                     await supabase.from('user_favorites').update({ poster: p }).eq('user_id', currentUser.id).eq('anime_id', fav.anime_id);
                   }
                 } catch (e) {}
               }
-              if (!p) {
-                p = `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`;
+              if (!p || p.includes('logo') || p.includes('banner')) {
+                p = `https://picsum.photos/seed/${fav.anime_id}/300/450`;
               }
               return { ...fav, poster: p };
             }));

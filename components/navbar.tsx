@@ -68,9 +68,23 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
           </div>
         </Link>
 
-        {/* MENÚ ESCRITORIO */}
-        <div className="hidden md:flex items-center gap-8">
-          <Link href="/home" className="text-white hover:text-orange-500 transition-colors font-medium text-base">Inicio</Link>
+        {/* MENÚ ESCRITORIO Y SWITCH DE MODO */}
+        <div className="hidden md:flex items-center gap-6">
+          <div className="flex items-center bg-neutral-900/80 p-1 rounded-xl border border-white/10">
+            <Link 
+              href="/home" 
+              className="px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all bg-orange-600 text-white shadow-md"
+            >
+              Anime
+            </Link>
+            <Link 
+              href="/movies/home" 
+              className="px-3.5 py-1.5 rounded-lg text-sm font-bold transition-all text-neutral-400 hover:text-white"
+            >
+              Series y Películas
+            </Link>
+          </div>
+
           <Link href="/browse" className="text-neutral-300 hover:text-orange-500 transition-colors text-base font-medium flex items-center gap-1.5"><Filter size={16} /> Explorar</Link>
           {!isGuest && (
              <Link href="/favorites" className="text-neutral-300 hover:text-orange-500 transition-colors text-base font-medium flex items-center gap-1.5">Mi Lista</Link>
@@ -157,6 +171,23 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
       {isMobileMenuOpen && (
         <div className="md:hidden absolute top-16 left-0 w-full bg-[#0a0a0a] border-b border-white/10 shadow-2xl h-[calc(100vh-4rem)] bg-opacity-95 backdrop-blur-xl overflow-y-auto">
           <div className="p-4 space-y-6">
+             {/* Selector de Modo Móvil */}
+             <div className="grid grid-cols-2 gap-2 bg-neutral-900 p-1.5 rounded-2xl border border-white/10">
+               <Link 
+                 href="/home" 
+                 onClick={() => setIsMobileMenuOpen(false)}
+                 className={`py-3 rounded-xl text-center font-bold text-sm transition-all ${!window.location.pathname.startsWith('/movies') ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400'}`}
+               >
+                 Anime
+               </Link>
+               <Link 
+                 href="/movies/home" 
+                 onClick={() => setIsMobileMenuOpen(false)}
+                 className={`py-3 rounded-xl text-center font-bold text-sm transition-all ${window.location.pathname.startsWith('/movies') ? 'bg-orange-600 text-white shadow-lg' : 'text-neutral-400'}`}
+               >
+                 Series y Películas
+               </Link>
+             </div>
             <form onSubmit={handleSearch} className="relative">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
               <input 
