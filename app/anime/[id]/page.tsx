@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown, ChevronLeft, ChevronRight, Moon, Sun, Search as SearchIcon, ShieldAlert, Maximize } from 'lucide-react';
+import { Play, Loader2, Flag, Share2, Server, CheckCircle, Info, ChevronDown, X, Check, Crown, ChevronLeft, ChevronRight, Moon, Sun, Search as SearchIcon, ShieldAlert, Maximize, Download } from 'lucide-react';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
 import { NativeVideoPlayer } from '@/components/native-video-player';
@@ -518,6 +518,32 @@ export default function AnimeDetail() {
                       </>
                     )}
                  </button>
+
+                 {/* BOTÓN DESCARGA (SOLO USUARIOS CON CUENTA) */}
+                 {user ? (
+                   currentVideoUrl && (
+                     <a
+                       href={currentVideoUrl}
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       className="px-4 py-2.5 rounded-md text-sm font-bold uppercase flex items-center gap-2 transition-all bg-neutral-900 border border-neutral-700 hover:border-orange-500 hover:text-orange-400 text-neutral-300 active:scale-95 shadow-sm"
+                       title="Abrir enlace de descarga directa del servidor"
+                     >
+                       <Download size={16} className="text-orange-500" />
+                       <span>Descargar</span>
+                     </a>
+                   )
+                 ) : (
+                   <Link
+                     href="/"
+                     className="px-4 py-2.5 rounded-md text-xs font-semibold flex items-center gap-2 transition-all bg-neutral-900/50 border border-white/5 hover:border-white/20 text-neutral-400 hover:text-white"
+                     title="Inicia sesión para descargar episodios"
+                   >
+                     <Download size={15} className="text-neutral-500" />
+                     <span className="hidden sm:inline">Descargar (Inicia Sesión)</span>
+                     <span className="sm:hidden">Descargar</span>
+                   </Link>
+                 )}
 
                  <button className="ml-auto text-gray-400 hover:text-orange-500 transition">
                     <Share2 size={22} />
