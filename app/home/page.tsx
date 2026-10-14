@@ -20,6 +20,7 @@ function HomeContent() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [homeData, setHomeData] = useState<{trending: any[], newReleases: any[], classics: any[]} | null>(null);
   const [featuredAnime, setFeaturedAnime] = useState<any>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
 
   // --- MODIFICACIÓN 2: Leer el usuario guardado ---
@@ -43,12 +44,14 @@ function HomeContent() {
           const res = await fetch('/api/home');
           const data = await res.json();
           
-          if (data.trending) {
+          if (data.trending && data.trending.length > 0) {
             setHomeData(data);
-            const randomFeatured = data.trending[Math.floor(Math.random() * data.trending.length)];
+            const idx = Math.floor(Math.random() * data.trending.length);
+            setCurrentIndex(idx);
+            const randomFeatured = data.trending[idx];
             const infoRes = await fetch(`/api/info?id=${randomFeatured.id}`);
             const infoData = await infoRes.json();
-            setFeaturedAnime({ ...infoData, image: infoData.poster });
+            setFeaturedAnime({ ...infoData, poster: randomFeatured.poster, image: randomFeatured.poster });
           }
         }
       } catch (error) {
@@ -65,21 +68,36 @@ function HomeContent() {
   useEffect(() => {
     if (!homeData?.trending || homeData.trending.length <= 1) return;
     const interval = setInterval(async () => {
-      const randomIndex = Math.floor(Math.random() * homeData.trending.length);
-      const randomFeatured = homeData.trending[randomIndex];
-      try {
-        const infoRes = await fetch(`/api/info?id=${randomFeatured.id}`);
-        const infoData = await infoRes.json();
-        if (infoData && infoData.id) {
-          setFeaturedAnime({ ...infoData, image: infoData.poster });
-        }
-      } catch (e) {
-        // ignore
-      }
+      setCurrentIndex(prev => {
+        const nextIdx = (prev + 1) % homeData.trending.length;
+        const selected = homeData.trending[nextIdx];
+        fetch(`/api/info?id=${selected.id}`)
+          .then(r => r.json())
+          .then(infoData => {
+            if (infoData && infoData.id) {
+              setFeaturedAnime({ ...infoData, poster: selected.poster, image: selected.poster });
+            }
+          })
+          .catch(() => {});
+        return nextIdx;
+      });
     }, 9000);
 
     return () => clearInterval(interval);
   }, [homeData]);
+
+  const handleSelectIndex = async (idx: number) => {
+    if (!homeData?.trending) return;
+    setCurrentIndex(idx);
+    const selected = homeData.trending[idx];
+    try {
+      const infoRes = await fetch(`/api/info?id=${selected.id}`);
+      const infoData = await infoRes.json();
+      if (infoData && infoData.id) {
+        setFeaturedAnime({ ...infoData, poster: selected.poster, image: selected.poster });
+      }
+    } catch (e) {}
+  };
 
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white pb-20">
@@ -106,9 +124,44 @@ function HomeContent() {
           ) : (
             <>
               {/* --- MODIFICACIÓN 3: Pasamos el usuario al Hero --- */}
-              {featuredAnime && <HeroSection anime={featuredAnime} user={user} />}
+              {featuredAnime && (
+                <HeroSection 
+                  anime={featuredAnime} 
+                  user={user} 
+                  trendingList={homeData?.trending || []} 
+                  currentIndex={currentIndex} 
+                  onSelectIndex={handleSelectIndex} 
+                />
+              )}
+
+              {/* PREVIEWS (ESTILO NETFLIX) */}
+              {homeData?.trending && homeData.trending.length > 0 && (
+                <div className="container mx-auto px-6 mt-6 mb-2">
+                  <h3 className="text-xs uppercase font-bold tracking-widest text-neutral-400 mb-3">Previsualizaciones</h3>
+                  <div className="flex items-center gap-4 overflow-x-auto pb-2 scrollbar-none">
+                    {homeData.trending.map((item, idx) => (
+                      <button
+                        key={item.id}
+                        onClick={() => handleSelectIndex(idx)}
+                        className="flex flex-col items-center gap-2 flex-shrink-0 group focus:outline-none"
+                      >
+                        <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full p-[2px] transition-all transform group-hover:scale-105 ${
+                          currentIndex === idx ? 'bg-gradient-to-tr from-orange-500 to-red-600 ring-2 ring-orange-500/50 shadow-lg shadow-orange-950/50' : 'bg-neutral-800'
+                        }`}>
+                          <div className="w-full h-full rounded-full overflow-hidden bg-black">
+                            <img src={item.poster} alt={item.title} className="w-full h-full object-cover" />
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-semibold text-neutral-300 group-hover:text-white max-w-[80px] truncate text-center">
+                          {item.title}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               
-              <div className="container mx-auto px-6 space-y-12 mt-10 relative z-20">
+              <div className="container mx-auto px-6 space-y-12 mt-6 relative z-20">
                 
                 <section id="trending" className="scroll-mt-28">
                   <div className="flex items-center gap-2 mb-6">

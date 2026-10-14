@@ -384,7 +384,16 @@ export default function AnimeDetail() {
               </div>
             )}
 
-            <div ref={playerContainerRef} className="relative w-full aspect-video bg-black shadow-2xl overflow-hidden group/player">
+            <div className="relative w-full my-1">
+              {/* EFECTO AMBIENT GLOW / OLED THEATER */}
+              {info?.poster && (
+                <div 
+                  className="absolute -inset-3 bg-cover bg-center rounded-3xl filter blur-3xl opacity-35 pointer-events-none transition-all duration-700 z-0"
+                  style={{ backgroundImage: `url('${info.poster}')` }}
+                />
+              )}
+
+              <div ref={playerContainerRef} className="relative w-full aspect-video bg-black shadow-2xl overflow-hidden group/player rounded-xl border border-white/10 z-10">
               {loadingVideo ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0a]">
                   <Loader2 className="animate-spin text-orange-500 mb-4" size={42} />
@@ -420,6 +429,7 @@ export default function AnimeDetail() {
                   </div>
                 </div>
               )}
+              </div>
             </div>
 
             {/* Servidores */}
