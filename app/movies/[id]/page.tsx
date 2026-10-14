@@ -86,16 +86,23 @@ export default function MovieDetailPage() {
 
   const isSerie = item.type === 'Serie';
   const servers = item.servers || [
-    { name: 'Voe (El Bueno - Latino HD)', url: 'https://vidsrc.to/embed/movie/550' },
-    { name: 'Doodstream (1080p)', url: 'https://vidsrc.cc/v2/embed/movie/550' },
-    { name: 'Goodstream (Latino)', url: 'https://multiembed.mov/?tmdb=550' }
+    { name: 'Servidor Principal HD (Latino)', url: 'https://vidsrc.to/embed/movie/550' },
+    { name: 'Servidor Alternativo 1080p', url: 'https://vidsrc.cc/v2/embed/movie/550' },
+    { name: 'Servidor MultiEmbed', url: 'https://multiembed.mov/?tmdb=550' }
   ];
 
   const currentServer = servers[serverIndex] || servers[0];
 
   let currentEmbedUrl = currentServer.url;
-  if (isSerie && currentEmbedUrl.includes('/tv/')) {
-    currentEmbedUrl = currentEmbedUrl.replace(/\/\d+\/\d+$/, `/1/${selectedEp}`);
+  if (isSerie) {
+    if (currentEmbedUrl.includes('/tv/')) {
+      // vidsrc.to/embed/tv/ID/SEASON/EPISODE
+      currentEmbedUrl = currentEmbedUrl.replace(/\/\d+\/\d+$/, `/1/${selectedEp}`);
+    } else if (currentEmbedUrl.includes('multiembed.mov')) {
+      currentEmbedUrl = currentEmbedUrl.includes('&s=') 
+        ? currentEmbedUrl.replace(/&s=\d+&e=\d+/, `&s=1&e=${selectedEp}`)
+        : `${currentEmbedUrl}&s=1&e=${selectedEp}`;
+    }
   }
 
   return (
@@ -110,7 +117,7 @@ export default function MovieDetailPage() {
         </div>
       )}
 
-      {/* REPRODUCTOR ESTILO CINE-CALIDAD (VOE, DOODSTREAM, GOODSTREAM) */}
+      {/* REPRODUCTOR SEGURO SIN POPUPS (SANDBOXED IFRAME) */}
       {isPlaying ? (
         <div className="w-full min-h-[90vh] bg-black pt-20 relative flex flex-col items-center justify-center">
           <div className="w-full container mx-auto px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 z-30">
@@ -125,7 +132,7 @@ export default function MovieDetailPage() {
               {item.title} {isSerie ? `- Ep. ${selectedEp}` : ''}
             </span>
 
-            {/* SELECTOR DE SERVIDORES CINE-CALIDAD */}
+            {/* SELECTOR DE SERVIDORES LIMPIOS */}
             <div className="flex items-center gap-2 bg-neutral-900 p-1.5 rounded-xl border border-white/10 overflow-x-auto max-w-full">
               <Server size={16} className="text-orange-500 ml-2 flex-shrink-0" />
               {servers.map((srv: any, idx: number) => (
@@ -146,6 +153,7 @@ export default function MovieDetailPage() {
                 key={currentEmbedUrl}
                 src={currentEmbedUrl}
                 className="w-full h-full border-0"
+                sandbox="allow-scripts allow-same-origin allow-presentation"
                 allowFullScreen
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               />
