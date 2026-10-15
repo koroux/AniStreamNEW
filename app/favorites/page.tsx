@@ -43,19 +43,29 @@ export default function FavoritesPage() {
       } else if (data) {
         const sanitized = await Promise.all(data.map(async (fav) => {
           let p = fav.poster;
-          if (!p || p.includes('logo') || p.includes('banner') || !p.startsWith('http')) {
+          const isBrokenThumb = p && (p.includes('/uploads/thumbs/') || p.includes('/thumbs/')) && !/\/\d+\.jpg$/.test(p);
+          const isInvalid = !p || p.includes('logo') || p.includes('banner') || !p.startsWith('http') || p.includes('picsum') || isBrokenThumb;
+          if (isInvalid) {
             try {
               const isMovies = fav.anime_id.startsWith('movie-') || fav.anime_id.startsWith('tv-');
-              const endpoint = isMovies ? '/api/movies/search' : '/api/search';
-              const searchRes = await fetch(`${endpoint}?q=${encodeURIComponent(fav.anime_id)}`);
-              const searchData = await searchRes.json();
-              if (Array.isArray(searchData) && searchData.length > 0 && searchData[0].poster && !searchData[0].poster.includes('logo')) {
-                p = searchData[0].poster;
-                await supabase.from('user_favorites').update({ poster: p }).eq('user_id', parsedUser.id).eq('anime_id', fav.anime_id);
+              if (isMovies) {
+                const searchRes = await fetch(`/api/movies/info?id=${encodeURIComponent(fav.anime_id)}`);
+                const infoData = await searchRes.json();
+                if (infoData?.poster) {
+                  p = infoData.poster;
+                  await supabase.from('user_favorites').update({ poster: p }).eq('user_id', parsedUser.id).eq('anime_id', fav.anime_id);
+                }
+              } else {
+                const infoRes = await fetch(`/api/info?id=${encodeURIComponent(fav.anime_id)}`);
+                const infoData = await infoRes.json();
+                if (infoData?.poster && !infoData.poster.includes('picsum') && !infoData.poster.includes('/thumbs/')) {
+                  p = infoData.poster;
+                  await supabase.from('user_favorites').update({ poster: p }).eq('user_id', parsedUser.id).eq('anime_id', fav.anime_id);
+                }
               }
             } catch (e) {}
           }
-          if (!p || p.includes('logo') || p.includes('banner')) {
+          if (!p || p.includes('logo') || p.includes('banner') || (p.includes('/thumbs/') && !/\/\d+\.jpg$/.test(p))) {
             p = `https://picsum.photos/seed/${fav.anime_id}/300/450`;
           }
           return { ...fav, poster: p };

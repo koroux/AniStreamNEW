@@ -34,8 +34,15 @@ export function AnimeCard({
       <div className="relative overflow-hidden rounded-2xl aspect-[2/3] bg-neutral-900 border border-white/5">
         {/* Poster Image */}
         <img
-          src={displayImage}
+          src={
+            displayImage && !displayImage.includes('/uploads/thumbs/')
+              ? displayImage
+              : (displayImage || `https://picsum.photos/seed/${id}/300/450`)
+          }
           alt={title}
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = `https://picsum.photos/seed/${id}/300/450`;
+          }}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           loading="lazy"
         />

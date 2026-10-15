@@ -75,7 +75,7 @@ function HomeContent() {
       if (nextSelected) {
         fetch(`/api/info?id=${nextSelected.id}`).then(r => r.json()).catch(() => {});
         const img = new Image();
-        img.src = nextSelected.poster || `https://tioanime.com/uploads/thumbs/${nextSelected.id}.jpg`;
+        img.src = nextSelected.poster || `https://picsum.photos/seed/${nextSelected.id}/300/450`;
       }
     }, 7000);
 

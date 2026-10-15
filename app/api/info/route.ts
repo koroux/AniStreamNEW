@@ -21,7 +21,16 @@ export async function GET(request: Request) {
         .single();
 
       if (cachedEntry && cachedEntry.data) {
-        return NextResponse.json(cachedEntry.data);
+        const cachedPoster = cachedEntry.data.poster || '';
+        const isBadPoster = !cachedPoster || 
+                            cachedPoster.includes('picsum') || 
+                            cachedPoster.includes('/thumbs/') || 
+                            cachedPoster.includes('logo') || 
+                            cachedPoster.includes('banner') || 
+                            !cachedPoster.includes('/uploads/portadas/');
+        if (!isBadPoster) {
+          return NextResponse.json(cachedEntry.data);
+        }
       }
     } catch (cacheErr) {}
 
@@ -46,41 +55,58 @@ export async function GET(request: Request) {
        return NextResponse.json({ error: 'Anime no encontrado' }, { status: 404 });
     }
 
+    // 1. Extraer poster directamente del HTML de la ficha del anime en TioAnime (buscar /uploads/portadas/)
     let poster = '';
-    try {
-      const searchRes = await fetch(`https://tioanime.com/directorio?q=${encodeURIComponent(id)}`, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        },
-        signal: AbortSignal.timeout(4000)
-      });
-      if (searchRes.ok) {
-        const searchHtml = await searchRes.text();
-        const $$ = cheerio.load(searchHtml);
-        $$('article').each((_, el) => {
-          const href = $$(el).find('a').attr('href') || '';
-          if (href.includes(id)) {
-            let p = $$(el).find('.thumb img').attr('src') || $$(el).find('img').attr('src') || '';
-            if (p) {
-              poster = p.startsWith('http') ? p : `https://tioanime.com${p}`;
+    const rawPoster = $('img[src*="/uploads/portadas/"]').first().attr('src') || 
+                      $('.thumb img').first().attr('src') || 
+                      $('article.anime-single img[src*="/uploads/"]').first().attr('src') || 
+                      '';
+
+    if (rawPoster && !rawPoster.includes('logo') && !rawPoster.includes('banner')) {
+      poster = rawPoster.startsWith('http') ? rawPoster : `https://tioanime.com${rawPoster}`;
+    }
+
+    // 2. Fallback secundario: si no vino en el HTML principal, buscar en el directorio
+    if (!poster) {
+      try {
+        const searchRes = await fetch(`https://tioanime.com/directorio?q=${encodeURIComponent(id)}`, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+          },
+          signal: AbortSignal.timeout(4000)
+        });
+        if (searchRes.ok) {
+          const searchHtml = await searchRes.text();
+          const $$ = cheerio.load(searchHtml);
+          $$('article').each((_, el) => {
+            const href = $$(el).find('a').attr('href') || '';
+            if (href.includes(id)) {
+              let p = $$(el).find('img[src*="/uploads/portadas/"]').attr('src') || 
+                      $$(el).find('.thumb img').attr('src') || 
+                      $$(el).find('img').attr('src') || '';
+              if (p && !p.includes('logo') && !p.includes('banner')) {
+                poster = p.startsWith('http') ? p : `https://tioanime.com${p}`;
+              }
+            }
+          });
+          if (!poster) {
+            const firstImg = $$('article').first().find('img[src*="/uploads/portadas/"]').attr('src') || 
+                             $$('article').first().find('.thumb img').attr('src') || 
+                             $$('article').first().find('img').attr('src');
+            if (firstImg && !firstImg.includes('logo') && !firstImg.includes('banner')) {
+              poster = firstImg.startsWith('http') ? firstImg : `https://tioanime.com${firstImg}`;
             }
           }
-        });
-        if (!poster) {
-          const firstImg = $$('article').first().find('.thumb img').attr('src');
-          if (firstImg) {
-            poster = firstImg.startsWith('http') ? firstImg : `https://tioanime.com${firstImg}`;
-          }
         }
-      }
-    } catch (e) {}
+      } catch (e) {}
+    }
 
     if (!poster || poster.includes('logo') || poster.includes('banner')) {
       poster = `https://picsum.photos/seed/${id}/300/450`;
     }
 
     const description = $('p.sinopsis').text().trim();
-    const type = $('.anime-type-peli').text().trim() || 'TV';
+    const type = $('.anime-type-peli').first().text().trim() || 'TV';
     const genres = $('p.genres a').map((_, el) => $(el).text().trim()).get();
     const status = $('.status').text().trim() || 'En emisión';
 
@@ -106,7 +132,7 @@ export async function GET(request: Request) {
 
     try {
       if (episodes.length > 0) {
-        await supabase.from('api_cache').insert({ key: cacheKey, data: animeInfo });
+        await supabase.from('api_cache').upsert({ key: cacheKey, data: animeInfo }, { onConflict: 'key' });
       }
     } catch (e) {}
 

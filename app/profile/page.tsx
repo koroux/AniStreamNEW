@@ -92,17 +92,29 @@ export default function ProfilePage() {
           if (favsDataRes.data) {
             const sanitizedFavs = await Promise.all(favsDataRes.data.map(async (fav) => {
               let p = fav.poster;
-              if (!p || p.includes('logo') || p.includes('banner') || !p.startsWith('http')) {
+              const isBrokenThumb = p && (p.includes('/uploads/thumbs/') || p.includes('/thumbs/')) && !/\/\d+\.jpg$/.test(p);
+              const isInvalid = !p || p.includes('logo') || p.includes('banner') || !p.startsWith('http') || p.includes('picsum') || isBrokenThumb;
+              if (isInvalid) {
                 try {
-                  const searchRes = await fetch(`/api/search?q=${encodeURIComponent(fav.anime_id)}`);
-                  const searchData = await searchRes.json();
-                  if (Array.isArray(searchData) && searchData.length > 0 && searchData[0].poster && !searchData[0].poster.includes('logo')) {
-                    p = searchData[0].poster;
-                    await supabase.from('user_favorites').update({ poster: p }).eq('user_id', currentUser.id).eq('anime_id', fav.anime_id);
+                  const isMovies = fav.anime_id.startsWith('movie-') || fav.anime_id.startsWith('tv-');
+                  if (isMovies) {
+                    const searchRes = await fetch(`/api/movies/info?id=${encodeURIComponent(fav.anime_id)}`);
+                    const infoData = await searchRes.json();
+                    if (infoData?.poster) {
+                      p = infoData.poster;
+                      await supabase.from('user_favorites').update({ poster: p }).eq('user_id', currentUser.id).eq('anime_id', fav.anime_id);
+                    }
+                  } else {
+                    const infoRes = await fetch(`/api/info?id=${encodeURIComponent(fav.anime_id)}`);
+                    const infoData = await infoRes.json();
+                    if (infoData?.poster && !infoData.poster.includes('picsum') && !infoData.poster.includes('/thumbs/')) {
+                      p = infoData.poster;
+                      await supabase.from('user_favorites').update({ poster: p }).eq('user_id', currentUser.id).eq('anime_id', fav.anime_id);
+                    }
                   }
                 } catch (e) {}
               }
-              if (!p || p.includes('logo') || p.includes('banner')) {
+              if (!p || p.includes('logo') || p.includes('banner') || (p.includes('/thumbs/') && !/\/\d+\.jpg$/.test(p))) {
                 p = `https://picsum.photos/seed/${fav.anime_id}/300/450`;
               }
               return { ...fav, poster: p };
@@ -328,27 +340,33 @@ export default function ProfilePage() {
             <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-2">Mi Lista de Favoritos</h3>
             {favorites.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {favorites.map((fav) => (
-                  <Link
-                    key={fav.anime_id}
-                    href={`/anime/${fav.anime_id}`}
-                    className="group flex flex-col bg-neutral-900 rounded-2xl overflow-hidden border border-white/5 hover:border-orange-500/40 transition-all shadow-lg"
-                  >
-                    <div className="aspect-[2/3] w-full overflow-hidden bg-neutral-950 relative">
-                      <img 
-                        src={fav.poster || `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`} 
-                        alt={fav.title} 
-                        onError={(e: any) => {
-                          e.target.src = `https://tioanime.com/uploads/thumbs/${fav.anime_id}.jpg`;
-                        }}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                      />
-                    </div>
-                    <div className="p-3">
-                      <h4 className="text-xs font-bold text-white truncate group-hover:text-orange-400 transition-colors">{fav.title}</h4>
-                    </div>
-                  </Link>
-                ))}
+                {favorites.map((fav) => {
+                  const isMovies = fav.anime_id.startsWith('movie-') || fav.anime_id.startsWith('tv-');
+                  const targetHref = isMovies ? `/movies/${fav.anime_id}` : `/anime/${fav.anime_id}`;
+                  const fallbackImg = `https://picsum.photos/seed/${fav.anime_id}/300/450`;
+                  const initialSrc = fav.poster && !fav.poster.includes('/uploads/thumbs/') ? fav.poster : fallbackImg;
+                  return (
+                    <Link
+                      key={fav.anime_id}
+                      href={targetHref}
+                      className="group flex flex-col bg-neutral-900 rounded-2xl overflow-hidden border border-white/5 hover:border-orange-500/40 transition-all shadow-lg"
+                    >
+                      <div className="aspect-[2/3] w-full overflow-hidden bg-neutral-950 relative">
+                        <img 
+                          src={initialSrc} 
+                          alt={fav.title} 
+                          onError={(e: any) => {
+                            e.currentTarget.src = fallbackImg;
+                          }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        />
+                      </div>
+                      <div className="p-3">
+                        <h4 className="text-xs font-bold text-white truncate group-hover:text-orange-400 transition-colors">{fav.title}</h4>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-16 text-neutral-500 text-sm bg-neutral-900/40 rounded-3xl border border-white/5">

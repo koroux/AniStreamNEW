@@ -70,13 +70,14 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
         .eq('anime_id', current.id);
       if (!error) setIsFavorite(false);
     } else {
+      const posterToSave = current.poster || current.image || `https://picsum.photos/seed/${current.id}/300/450`;
       const { error } = await supabase
         .from('user_favorites')
         .insert({
           user_id: user.id,
           anime_id: current.id,
           title: current.title,
-          poster: current.poster || current.image || `https://tioanime.com/uploads/thumbs/${current.id}.jpg`,
+          poster: posterToSave,
         });
       if (!error) setIsFavorite(true);
     }

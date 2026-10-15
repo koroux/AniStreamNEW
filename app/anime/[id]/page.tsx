@@ -253,13 +253,27 @@ export default function AnimeDetail() {
       if (!error) setIsFavorite(false);
     } else {
       // Agregar
+      let posterToSave = info?.poster || info?.image || '';
+      if (!posterToSave || posterToSave.includes('/thumbs/') || posterToSave.includes('picsum')) {
+        try {
+          const res = await fetch(`/api/info?id=${id}`);
+          const data = await res.json();
+          if (data?.poster && !data.poster.includes('/thumbs/')) {
+            posterToSave = data.poster;
+          }
+        } catch (e) {}
+      }
+      if (!posterToSave) {
+        posterToSave = `https://picsum.photos/seed/${id}/300/450`;
+      }
+
       const { error } = await supabase
         .from('user_favorites')
         .insert({
           user_id: user.id,
           anime_id: id,
-          title: info?.title,
-          poster: `https://tioanime.com/uploads/thumbs/${id}.jpg`,
+          title: info?.title || id,
+          poster: posterToSave,
         });
 
       if (!error) setIsFavorite(true);
