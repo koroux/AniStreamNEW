@@ -216,7 +216,7 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
                 </div>
               ) : (
                 <>
-                  <div className="max-h-[360px] overflow-y-auto divide-y divide-white/5">
+                  <div className="max-h-[360px] overflow-y-auto divide-y divide-white/5 scrollbar-none">
                     {searchResults.map((item) => (
                       <button
                         key={item.id}
@@ -387,7 +387,7 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
                     </div>
                   ) : (
                     <>
-                      <div className="max-h-[260px] overflow-y-auto divide-y divide-white/5">
+                      <div className="max-h-[260px] overflow-y-auto divide-y divide-white/5 scrollbar-none">
                         {searchResults.map((item) => (
                           <button
                             key={item.id}

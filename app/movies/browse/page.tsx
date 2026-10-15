@@ -276,7 +276,7 @@ export default function MoviesBrowsePage() {
         {/* CHIPS HORIZONTALES DE GÉNEROS */}
         {visibleGenres.length > 0 && (
           <div className="relative mb-8">
-            <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-white/10">
+            <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-thin">
               <div className="flex items-center gap-1.5 text-orange-500 font-bold text-xs uppercase tracking-wider pl-1 pr-2 flex-shrink-0">
                 <Filter size={15} />
                 <span>Género:</span>
