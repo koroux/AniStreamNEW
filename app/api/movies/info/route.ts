@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
@@ -113,7 +114,7 @@ function slugSimilarity(title: string, slug: string): number {
   return common.length * 10;
 }
 
-async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
+async function fetchTMDBMetaRaw(idOrSlug: string): Promise<TMDBMetaResult | null> {
   const token = process.env.TMDB_READ_TOKEN;
 
   if (!token) {
@@ -135,7 +136,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
       if (mediaType === 'movie') {
         const movieRes = await fetch(
           `https://api.themoviedb.org/3/movie/${directTmdbId}?language=es-ES&append_to_response=translations`,
-          { headers, signal: AbortSignal.timeout(8000) }
+          { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
         );
         if (movieRes.ok) {
           const detail = await movieRes.json();
@@ -145,7 +146,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
       } else {
         const tvRes = await fetch(
           `https://api.themoviedb.org/3/tv/${directTmdbId}?language=es-ES&append_to_response=translations`,
-          { headers, signal: AbortSignal.timeout(8000) }
+          { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
         );
         if (tvRes.ok) {
           const detail = await tvRes.json();
@@ -164,11 +165,11 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
       const [movieRes, tvRes] = await Promise.all([
         fetch(
           `https://api.themoviedb.org/3/movie/${directTmdbId}?language=es-ES&append_to_response=translations`,
-          { headers, signal: AbortSignal.timeout(8000) }
+          { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
         ),
         fetch(
           `https://api.themoviedb.org/3/tv/${directTmdbId}?language=es-ES&append_to_response=translations`,
-          { headers, signal: AbortSignal.timeout(8000) }
+          { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
         )
       ]);
 
@@ -200,7 +201,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
 
     const movieSearchRes = await fetch(
       `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=es-ES`,
-      { headers, signal: AbortSignal.timeout(8000) }
+      { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
     );
 
     if (movieSearchRes.ok) {
@@ -209,7 +210,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
         const topResult = movieData.results[0];
         const detailRes = await fetch(
           `https://api.themoviedb.org/3/movie/${topResult.id}?language=es-ES&append_to_response=translations`,
-          { headers, signal: AbortSignal.timeout(8000) }
+          { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
         );
         if (detailRes.ok) {
           const detail = await detailRes.json();
@@ -220,7 +221,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
 
     const tvSearchRes = await fetch(
       `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&language=es-ES`,
-      { headers, signal: AbortSignal.timeout(8000) }
+      { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
     );
 
     if (tvSearchRes.ok) {
@@ -229,7 +230,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
         const topResult = tvData.results[0];
         const detailRes = await fetch(
           `https://api.themoviedb.org/3/tv/${topResult.id}?language=es-ES&append_to_response=translations`,
-          { headers, signal: AbortSignal.timeout(8000) }
+          { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
         );
         if (detailRes.ok) {
           const detail = await detailRes.json();
@@ -244,6 +245,73 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
     throw err;
   }
 }
+
+const getCachedTMDBMeta = unstable_cache(
+  async (idOrSlug: string) => fetchTMDBMetaRaw(idOrSlug),
+  ['movies-info-tmdb-meta'],
+  { revalidate: 3600 }
+);
+
+const getCachedTVSeasons = unstable_cache(
+  async (tvTmdbId: number) => {
+    const token = process.env.TMDB_READ_TOKEN;
+    if (!token) return [];
+
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json'
+    };
+
+    const tvRes = await fetch(`https://api.themoviedb.org/3/tv/${tvTmdbId}?language=es-ES`, {
+      headers,
+      signal: AbortSignal.timeout(8000),
+      next: { revalidate: 3600 }
+    });
+
+    if (!tvRes.ok) return [];
+
+    const tvJson = await tvRes.json();
+    const validSeasons = (tvJson.seasons || []).filter(
+      (s: any) => s.season_number > 0 && s.episode_count > 0
+    );
+
+    const seasonPromises = validSeasons.map(async (s: any) => {
+      try {
+        const sRes = await fetch(
+          `https://api.themoviedb.org/3/tv/${tvTmdbId}/season/${s.season_number}?language=es-ES`,
+          { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 3600 } }
+        );
+
+        if (!sRes.ok) return null;
+        const sJson = await sRes.json();
+
+        return {
+          seasonNumber: s.season_number,
+          name: s.name || `Temporada ${s.season_number}`,
+          episodeCount: s.episode_count,
+          poster: s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : '',
+          episodes: (sJson.episodes || []).map((ep: any) => ({
+            episodeNumber: ep.episode_number,
+            seasonNumber: s.season_number,
+            title: ep.name || `Episodio ${ep.episode_number}`,
+            synopsis: ep.overview || '',
+            still: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : '',
+            runtime: ep.runtime || 0,
+            airDate: ep.air_date || ''
+          }))
+        };
+      } catch (seasonErr) {
+        console.error(`Error fetching season ${s.season_number}:`, seasonErr);
+        return null;
+      }
+    });
+
+    const resolvedSeasons = await Promise.all(seasonPromises);
+    return resolvedSeasons.filter(Boolean);
+  },
+  ['movies-info-tv-seasons'],
+  { revalidate: 3600 }
+);
 
 function scoreMatch(
   queryTitles: string[],
@@ -526,7 +594,7 @@ export async function GET(request: Request) {
 
   let tmdbMeta: TMDBMetaResult | null = null;
   try {
-    tmdbMeta = await fetchTMDBMeta(id);
+    tmdbMeta = await getCachedTMDBMeta(id);
   } catch (err) {
     return NextResponse.json({ error: 'Error conectando con TMDB' }, { status: 500 });
   }
@@ -566,58 +634,7 @@ export async function GET(request: Request) {
   let seasonsData: any[] = [];
   if (isSerie && tmdbMeta.tmdbId) {
     try {
-      const tvTmdbId = tmdbMeta.tmdbId;
-      const token = process.env.TMDB_READ_TOKEN;
-      const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      };
-
-      const tvRes = await fetch(`https://api.themoviedb.org/3/tv/${tvTmdbId}?language=es-ES`, {
-        headers,
-        signal: AbortSignal.timeout(8000)
-      });
-
-      if (tvRes.ok) {
-        const tvJson = await tvRes.json();
-        const validSeasons = (tvJson.seasons || []).filter(
-          (s: any) => s.season_number > 0 && s.episode_count > 0
-        );
-
-        const seasonPromises = validSeasons.map(async (s: any) => {
-          try {
-            const sRes = await fetch(
-              `https://api.themoviedb.org/3/tv/${tvTmdbId}/season/${s.season_number}?language=es-ES`,
-              { headers, signal: AbortSignal.timeout(8000) }
-            );
-
-            if (!sRes.ok) return null;
-            const sJson = await sRes.json();
-
-            return {
-              seasonNumber: s.season_number,
-              name: s.name || `Temporada ${s.season_number}`,
-              episodeCount: s.episode_count,
-              poster: s.poster_path ? `https://image.tmdb.org/t/p/w500${s.poster_path}` : '',
-              episodes: (sJson.episodes || []).map((ep: any) => ({
-                episodeNumber: ep.episode_number,
-                seasonNumber: s.season_number,
-                title: ep.name || `Episodio ${ep.episode_number}`,
-                synopsis: ep.overview || '',
-                still: ep.still_path ? `https://image.tmdb.org/t/p/w300${ep.still_path}` : '',
-                runtime: ep.runtime || 0,
-                airDate: ep.air_date || ''
-              }))
-            };
-          } catch (seasonErr) {
-            console.error(`Error fetching season ${s.season_number}:`, seasonErr);
-            return null;
-          }
-        });
-
-        const resolvedSeasons = await Promise.all(seasonPromises);
-        seasonsData = resolvedSeasons.filter(Boolean);
-      }
+      seasonsData = await getCachedTVSeasons(tmdbMeta.tmdbId);
     } catch (seriesErr) {
       console.error('Error fetching series seasons from TMDB:', seriesErr);
     }

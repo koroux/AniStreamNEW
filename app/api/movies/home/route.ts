@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,26 +15,26 @@ function generateItemId(item: any, mediaType: 'movie' | 'tv'): string {
   return slug ? `${mediaType}-${item.id}-${slug}` : `${mediaType}-${item.id}`;
 }
 
-export async function GET() {
-  const token = process.env.TMDB_READ_TOKEN;
-  if (!token) {
-    return NextResponse.json({ error: 'TMDB_READ_TOKEN is not configured' }, { status: 500 });
-  }
+const getHomeData = unstable_cache(
+  async () => {
+    const token = process.env.TMDB_READ_TOKEN;
+    if (!token) {
+      throw new Error('TMDB_READ_TOKEN is not configured');
+    }
 
-  const headers = {
-    'Authorization': `Bearer ${token}`,
-    'Accept': 'application/json'
-  };
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json'
+    };
 
-  try {
     const [movieGenresRes, tvGenresRes, trendingMovieRes, trendingTvRes, nowPlayingRes, onAirRes, topMovieRes] = await Promise.all([
-      fetch('https://api.themoviedb.org/3/genre/movie/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/trending/movie/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/trending/tv/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/movie/now_playing?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/tv/on_the_air?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/movie/top_rated?language=es-ES', { headers, signal: AbortSignal.timeout(8000) })
+      fetch('https://api.themoviedb.org/3/genre/movie/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } }),
+      fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } }),
+      fetch('https://api.themoviedb.org/3/trending/movie/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } }),
+      fetch('https://api.themoviedb.org/3/trending/tv/week?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } }),
+      fetch('https://api.themoviedb.org/3/movie/now_playing?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } }),
+      fetch('https://api.themoviedb.org/3/tv/on_the_air?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } }),
+      fetch('https://api.themoviedb.org/3/movie/top_rated?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } })
     ]);
 
     const genreMap = new Map<number, string>();
@@ -98,13 +99,26 @@ export async function GET() {
     const movies = Array.from(new Map(allMoviesRaw.map(m => [m.id, m])).values());
     const series = onAir;
 
-    return NextResponse.json({
+    return {
       trending,
       movies,
       series,
       newReleases: [...nowPlaying.slice(0, 10), ...onAir.slice(0, 10)]
-    });
+    };
+  },
+  ['movies-home-data'],
+  { revalidate: 1800 } // 30 minutos de caché
+);
 
+export async function GET() {
+  const token = process.env.TMDB_READ_TOKEN;
+  if (!token) {
+    return NextResponse.json({ error: 'TMDB_READ_TOKEN is not configured' }, { status: 500 });
+  }
+
+  try {
+    const data = await getHomeData();
+    return NextResponse.json(data);
   } catch (err) {
     console.error('Error fetching TMDB home data:', err);
     return NextResponse.json({ error: 'Error al conectar con TMDB' }, { status: 500 });

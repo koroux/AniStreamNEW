@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,55 +15,43 @@ function generateItemId(item: any, mediaType: 'movie' | 'tv'): string {
   return slug ? `${mediaType}-${item.id}-${slug}` : `${mediaType}-${item.id}`;
 }
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
+const getBrowseData = unstable_cache(
+  async (type: string, genre: string, pageNum: number, sort: string) => {
+    const token = process.env.TMDB_READ_TOKEN;
+    if (!token) {
+      throw new Error('TMDB_READ_TOKEN is not configured');
+    }
 
-  const token = process.env.TMDB_READ_TOKEN;
-  if (!token) {
-    return NextResponse.json({ error: 'TMDB_READ_TOKEN is not configured' }, { status: 500 });
-  }
+    const headers = {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json'
+    };
 
-  const headers = {
-    'Authorization': `Bearer ${token}`,
-    'Accept': 'application/json'
-  };
+    const today = new Date().toISOString().split('T')[0];
 
-  const type = searchParams.get('type') || 'all'; // 'all' | 'movie' | 'tv'
-  const genre = searchParams.get('genre'); // ID numérico de TMDB (ej: "27") o undefined
-  const pageStr = searchParams.get('page') || '1';
-  const sort = searchParams.get('sort') || 'popularity'; // 'popularity' | 'rating' | 'recent'
+    const sortMovieMap: Record<string, string> = {
+      popularity: 'popularity.desc',
+      rating: 'vote_average.desc',
+      recent: 'primary_release_date.desc'
+    };
 
-  const pageNum = Math.max(1, parseInt(pageStr, 10) || 1);
-  const today = new Date().toISOString().split('T')[0];
+    const sortTvMap: Record<string, string> = {
+      popularity: 'popularity.desc',
+      rating: 'vote_average.desc',
+      recent: 'first_air_date.desc'
+    };
 
-  const sortMovieMap: Record<string, string> = {
-    popularity: 'popularity.desc',
-    rating: 'vote_average.desc',
-    recent: 'primary_release_date.desc'
-  };
+    const movieSort = sortMovieMap[sort] || 'popularity.desc';
+    const tvSort = sortTvMap[sort] || 'popularity.desc';
 
-  const sortTvMap: Record<string, string> = {
-    popularity: 'popularity.desc',
-    rating: 'vote_average.desc',
-    recent: 'first_air_date.desc'
-  };
+    const voteFilter = sort === 'rating' ? '&vote_count.gte=50' : '';
+    const dateFilterMovie = sort === 'recent' ? `&primary_release_date.lte=${today}` : '';
+    const dateFilterTv = sort === 'recent' ? `&first_air_date.lte=${today}` : '';
 
-  const movieSort = sortMovieMap[sort] || 'popularity.desc';
-  const tvSort = sortTvMap[sort] || 'popularity.desc';
-
-  const genreParam = (genre && genre !== '0' && genre !== 'Todos' && genre !== 'null' && genre !== 'undefined')
-    ? `&with_genres=${encodeURIComponent(genre)}`
-    : '';
-
-  const voteFilter = sort === 'rating' ? '&vote_count.gte=50' : '';
-  const dateFilterMovie = sort === 'recent' ? `&primary_release_date.lte=${today}` : '';
-  const dateFilterTv = sort === 'recent' ? `&first_air_date.lte=${today}` : '';
-
-  try {
     // 1. Obtener listas de géneros para mapear nombres y alimentar los filtros
     const [movieGenresRes, tvGenresRes] = await Promise.all([
-      fetch('https://api.themoviedb.org/3/genre/movie/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) })
+      fetch('https://api.themoviedb.org/3/genre/movie/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } }),
+      fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } })
     ]);
 
     // Mapas de equivalencia conceptual entre películas y series de TMDB
@@ -177,25 +166,25 @@ export async function GET(request: Request) {
         if (movieGenreId !== null) {
           shouldFetchMovie = true;
         } else {
-          return NextResponse.json({
+          return {
             items: [],
             page: pageNum,
             totalPages: 0,
             hasMore: false,
             genres: genresList
-          });
+          };
         }
       } else if (type === 'tv') {
         if (tvGenreId !== null) {
           shouldFetchTv = true;
         } else {
-          return NextResponse.json({
+          return {
             items: [],
             page: pageNum,
             totalPages: 0,
             hasMore: false,
             genres: genresList
-          });
+          };
         }
       } else {
         // type === 'all'
@@ -233,7 +222,7 @@ export async function GET(request: Request) {
     if (shouldFetchMovie) {
       try {
         const mUrl = `https://api.themoviedb.org/3/discover/movie?language=es-ES&sort_by=${movieSort}&page=${pageNum}${movieGenreParam}${voteFilter}${dateFilterMovie}`;
-        const mRes = await fetch(mUrl, { headers, signal: AbortSignal.timeout(8000) });
+        const mRes = await fetch(mUrl, { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } });
         if (mRes.ok) {
           const mData = await mRes.json();
           movieTotalPages = mData.total_pages || 1;
@@ -247,7 +236,7 @@ export async function GET(request: Request) {
     if (shouldFetchTv) {
       try {
         const tvUrl = `https://api.themoviedb.org/3/discover/tv?language=es-ES&sort_by=${tvSort}&page=${pageNum}${tvGenreParam}${voteFilter}${dateFilterTv}`;
-        const tvRes = await fetch(tvUrl, { headers, signal: AbortSignal.timeout(8000) });
+        const tvRes = await fetch(tvUrl, { headers, signal: AbortSignal.timeout(8000), next: { revalidate: 1800 } });
         if (tvRes.ok) {
           const tvData = await tvRes.json();
           tvTotalPages = tvData.total_pages || 1;
@@ -284,14 +273,35 @@ export async function GET(request: Request) {
     const cappedTotalPages = Math.min(500, totalPages);
     const hasMore = pageNum < cappedTotalPages && uniqueItems.length > 0;
 
-    return NextResponse.json({
+    return {
       items: uniqueItems,
       page: pageNum,
       totalPages: cappedTotalPages,
       hasMore,
       genres: genresList
-    });
+    };
+  },
+  ['movies-browse-data'],
+  { revalidate: 1800 } // 30 minutos de caché
+);
 
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+
+  const token = process.env.TMDB_READ_TOKEN;
+  if (!token) {
+    return NextResponse.json({ error: 'TMDB_READ_TOKEN is not configured' }, { status: 500 });
+  }
+
+  const type = searchParams.get('type') || 'all'; // 'all' | 'movie' | 'tv'
+  const genre = searchParams.get('genre') || '0';
+  const pageStr = searchParams.get('page') || '1';
+  const sort = searchParams.get('sort') || 'popularity'; // 'popularity' | 'rating' | 'recent'
+  const pageNum = Math.max(1, parseInt(pageStr, 10) || 1);
+
+  try {
+    const data = await getBrowseData(type, genre, pageNum, sort);
+    return NextResponse.json(data);
   } catch (err) {
     console.error('Error in movies browse API:', err);
     return NextResponse.json({ error: 'Error al obtener catálogo de TMDB' }, { status: 500 });
