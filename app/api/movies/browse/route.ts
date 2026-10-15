@@ -65,19 +65,45 @@ export async function GET(request: Request) {
       fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) })
     ]);
 
+    // Mapas de equivalencia conceptual entre películas y series de TMDB
+    const MOVIE_TO_TV_GENRE_ID: Record<number, number> = {
+      28: 10759,    // Acción → Action & Adventure
+      878: 10765,   // Ciencia ficción → Sci-Fi & Fantasy
+      10752: 10768  // Bélica → War & Politics
+    };
+
+    const TV_TO_MOVIE_GENRE_ID: Record<number, number> = {
+      10759: 28,
+      10765: 878,
+      10768: 10752
+    };
+
+    // Géneros de TV que tienen equivalente en película (no deben aparecer como chips separados)
+    const TV_GENRES_WITH_MOVIE_EQUIVALENT = new Set([10759, 10765, 10768]);
+
+    interface GenreItem {
+      id: number;
+      name: string;
+      types: ('movie' | 'tv')[];
+      equivalentTvId?: number | null;
+      equivalentMovieId?: number | null;
+    }
+
     const genreMap = new Map<number, string>();
-    const genresMap = new Map<number, { id: number; name: string; types: ('movie' | 'tv')[] }>();
+    const genresMap = new Map<number, GenreItem>();
 
     if (movieGenresRes.ok) {
       const data = await movieGenresRes.json();
       (data.genres || []).forEach((g: any) => {
         genreMap.set(g.id, g.name);
-        const existing = genresMap.get(g.id);
-        if (existing) {
-          if (!existing.types.includes('movie')) existing.types.push('movie');
-        } else {
-          genresMap.set(g.id, { id: g.id, name: g.name, types: ['movie'] });
-        }
+        const eqTv = MOVIE_TO_TV_GENRE_ID[g.id] || null;
+        genresMap.set(g.id, {
+          id: g.id,
+          name: g.name,
+          types: eqTv ? ['movie', 'tv'] : ['movie'],
+          equivalentTvId: eqTv,
+          equivalentMovieId: null
+        });
       });
     }
 
@@ -85,28 +111,35 @@ export async function GET(request: Request) {
       const data = await tvGenresRes.json();
       (data.genres || []).forEach((g: any) => {
         genreMap.set(g.id, g.name);
+
+        // Si este género de TV tiene equivalente en movie, no añadir como chip duplicado
+        if (TV_GENRES_WITH_MOVIE_EQUIVALENT.has(g.id)) {
+          return;
+        }
+
         const existing = genresMap.get(g.id);
         if (existing) {
-          if (!existing.types.includes('tv')) existing.types.push('tv');
+          // Mismo ID en ambos (ej: 16 Animación, 35 Comedia, 18 Drama, etc.)
+          if (!existing.types.includes('tv')) {
+            existing.types.push('tv');
+          }
         } else {
-          genresMap.set(g.id, { id: g.id, name: g.name, types: ['tv'] });
+          // Exclusivo de TV (ej: 10762 Kids, 10764 Reality, etc.)
+          genresMap.set(g.id, {
+            id: g.id,
+            name: g.name,
+            types: ['tv'],
+            equivalentTvId: null,
+            equivalentMovieId: null
+          });
         }
       });
     }
 
-    // Mapeo de géneros equivalentes en TMDB:
-    // En TMDB, Acción en películas es 28 y en series es 10759 ("Action & Adventure")
-    const MOVIE_TO_TV_GENRE: Record<number, number> = {
-      28: 10759
-    };
-    const TV_TO_MOVIE_GENRE: Record<number, number> = {
-      10759: 28
-    };
-
-    if (genresMap.has(28)) {
-      const g28 = genresMap.get(28)!;
-      if (!g28.types.includes('tv')) g28.types.push('tv');
-    }
+    // Normalizar nombres de géneros en español para los badges de items de series equivalentes
+    genreMap.set(10759, 'Acción');
+    genreMap.set(10765, 'Ciencia ficción');
+    genreMap.set(10768, 'Bélica');
 
     const genresList = Array.from(genresMap.values());
     genresList.sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -115,19 +148,33 @@ export async function GET(request: Request) {
     const requestedGenreId = (genre && genre !== '0' && genre !== 'Todos' && genre !== 'null' && genre !== 'undefined')
       ? parseInt(genre, 10)
       : null;
-    const genreItem = requestedGenreId !== null
-      ? genresList.find(g => g.id === requestedGenreId)
-      : null;
+
+    let genreItem: GenreItem | null = null;
+    let movieGenreId: number | null = null;
+    let tvGenreId: number | null = null;
+
+    if (requestedGenreId !== null) {
+      genreItem = genresList.find(g => g.id === requestedGenreId) || null;
+
+      if (genreItem) {
+        movieGenreId = genreItem.types.includes('movie') ? genreItem.id : (genreItem.equivalentMovieId || null);
+        tvGenreId = genreItem.equivalentTvId || (genreItem.types.includes('tv') ? genreItem.id : null);
+      } else if (TV_TO_MOVIE_GENRE_ID[requestedGenreId]) {
+        movieGenreId = TV_TO_MOVIE_GENRE_ID[requestedGenreId];
+        tvGenreId = requestedGenreId;
+        genreItem = genresList.find(g => g.id === movieGenreId) || null;
+      }
+    }
 
     let shouldFetchMovie = false;
     let shouldFetchTv = false;
 
-    if (!genreItem) {
+    if (!requestedGenreId) {
       if (type === 'all' || type === 'movie') shouldFetchMovie = true;
       if (type === 'all' || type === 'tv') shouldFetchTv = true;
     } else {
       if (type === 'movie') {
-        if (genreItem.types.includes('movie')) {
+        if (movieGenreId !== null) {
           shouldFetchMovie = true;
         } else {
           return NextResponse.json({
@@ -139,7 +186,7 @@ export async function GET(request: Request) {
           });
         }
       } else if (type === 'tv') {
-        if (genreItem.types.includes('tv')) {
+        if (tvGenreId !== null) {
           shouldFetchTv = true;
         } else {
           return NextResponse.json({
@@ -152,13 +199,11 @@ export async function GET(request: Request) {
         }
       } else {
         // type === 'all'
-        if (genreItem.types.includes('movie')) shouldFetchMovie = true;
-        if (genreItem.types.includes('tv')) shouldFetchTv = true;
+        if (movieGenreId !== null) shouldFetchMovie = true;
+        if (tvGenreId !== null) shouldFetchTv = true;
       }
     }
 
-    const movieGenreId = requestedGenreId ? (TV_TO_MOVIE_GENRE[requestedGenreId] || requestedGenreId) : null;
-    const tvGenreId = requestedGenreId ? (MOVIE_TO_TV_GENRE[requestedGenreId] || requestedGenreId) : null;
     const movieGenreParam = movieGenreId ? `&with_genres=${movieGenreId}` : '';
     const tvGenreParam = tvGenreId ? `&with_genres=${tvGenreId}` : '';
 

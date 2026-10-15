@@ -9,6 +9,8 @@ interface GenreItem {
   id: number;
   name: string;
   types: ('movie' | 'tv')[];
+  equivalentTvId?: number | null;
+  equivalentMovieId?: number | null;
 }
 
 export default function MoviesBrowsePage() {
