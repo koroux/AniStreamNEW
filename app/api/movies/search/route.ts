@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function generateItemId(item: any): string {
+function generateItemId(item: any, mediaType: 'movie' | 'tv'): string {
   const title = item.title || item.name || 'sin-titulo';
   const slug = title
     .toLowerCase()
@@ -11,7 +11,7 @@ function generateItemId(item: any): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
-  return slug ? `${item.id}-${slug}` : `${item.id}`;
+  return slug ? `${mediaType}-${item.id}-${slug}` : `${mediaType}-${item.id}`;
 }
 
 export async function GET(request: Request) {
@@ -46,8 +46,9 @@ export async function GET(request: Request) {
       .map((item: any) => {
         const title = item.title || item.name || 'Sin título';
         const type = item.media_type === 'tv' ? 'Serie' : 'Película';
+        const mediaType: 'movie' | 'tv' = item.media_type === 'tv' ? 'tv' : 'movie';
         return {
-          id: generateItemId(item),
+          id: generateItemId(item, mediaType),
           tmdbId: item.id,
           title,
           poster: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : '',

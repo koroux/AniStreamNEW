@@ -57,6 +57,62 @@ function extractTranslations(detail: any): string[] {
     .filter(Boolean);
 }
 
+function formatMovieMeta(detail: any): TMDBMetaResult {
+  const titleEs = detail.title || 'Sin título';
+  const titleOriginal = detail.original_title || '';
+  const latamTitles = extractTranslations(detail);
+  const candidateTitles = Array.from(new Set([titleEs, titleOriginal, ...latamTitles])).filter(Boolean);
+
+  return {
+    title: titleEs,
+    title_es: titleEs,
+    title_original: titleOriginal,
+    candidate_titles: candidateTitles,
+    year: (detail.release_date || '').substring(0, 4),
+    type: 'Película',
+    poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
+    banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
+    synopsis: detail.overview || 'Sinopsis no disponible.',
+    rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
+    genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
+    tmdbId: detail.id
+  };
+}
+
+function formatTvMeta(detail: any): TMDBMetaResult {
+  const titleEs = detail.name || 'Sin título';
+  const titleOriginal = detail.original_name || '';
+  const latamTitles = extractTranslations(detail);
+  const candidateTitles = Array.from(new Set([titleEs, titleOriginal, ...latamTitles])).filter(Boolean);
+
+  return {
+    title: titleEs,
+    title_es: titleEs,
+    title_original: titleOriginal,
+    candidate_titles: candidateTitles,
+    year: (detail.first_air_date || '').substring(0, 4),
+    type: 'Serie',
+    poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
+    banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
+    synopsis: detail.overview || 'Sinopsis no disponible.',
+    rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
+    genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
+    tmdbId: detail.id
+  };
+}
+
+function slugSimilarity(title: string, slug: string): number {
+  if (!slug) return 0;
+  const normTitle = normalizeStr(title).replace(/\s+/g, '-');
+  const normSlug = normalizeStr(slug.replace(/-/g, ' ')).replace(/\s+/g, '-');
+  if (normTitle === normSlug) return 100;
+  if (normTitle.includes(normSlug) || normSlug.includes(normTitle)) return 50;
+  const tTokens = new Set(normTitle.split('-').filter(Boolean));
+  const sTokens = new Set(normSlug.split('-').filter(Boolean));
+  const common = Array.from(tTokens).filter(t => sTokens.has(t));
+  return common.length * 10;
+}
+
 async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
   const token = process.env.TMDB_READ_TOKEN;
 
@@ -69,75 +125,79 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
     'Accept': 'application/json'
   };
 
-  const match = idOrSlug.match(/^(\d+)(?:-|$)/);
-  const directTmdbId = match ? parseInt(match[1], 10) : null;
-
   try {
-    // 1. Si id inicia con ID numérico (ej: "238-el-padrino" o "155-el-caballero-oscuro"), consultamos directamente por TMDB ID
-    if (directTmdbId) {
-      // Intentar primero como Película
-      const movieRes = await fetch(
-        `https://api.themoviedb.org/3/movie/${directTmdbId}?language=es-ES&append_to_response=translations`,
-        { headers, signal: AbortSignal.timeout(8000) }
-      );
+    // 1. Detectar tipo explícito al inicio: /^(movie|tv)-(\d+)(?:-|$)/
+    const typedMatch = idOrSlug.match(/^(movie|tv)-(\d+)(?:-|$)/);
+    if (typedMatch) {
+      const mediaType = typedMatch[1]; // 'movie' | 'tv'
+      const directTmdbId = parseInt(typedMatch[2], 10);
 
-      if (movieRes.ok) {
-        const detail = await movieRes.json();
-        const titleEs = detail.title || 'Sin título';
-        const titleOriginal = detail.original_title || '';
-        const latamTitles = extractTranslations(detail);
-        const candidateTitles = Array.from(new Set([titleEs, titleOriginal, ...latamTitles])).filter(Boolean);
-
-        return {
-          title: titleEs,
-          title_es: titleEs,
-          title_original: titleOriginal,
-          candidate_titles: candidateTitles,
-          year: (detail.release_date || '').substring(0, 4),
-          type: 'Película',
-          poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
-          banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
-          synopsis: detail.overview || 'Sinopsis no disponible.',
-          rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
-          genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
-          tmdbId: detail.id
-        };
-      }
-
-      // Si no es película (ej: 404), intentar como Serie (TV)
-      const tvRes = await fetch(
-        `https://api.themoviedb.org/3/tv/${directTmdbId}?language=es-ES&append_to_response=translations`,
-        { headers, signal: AbortSignal.timeout(8000) }
-      );
-
-      if (tvRes.ok) {
-        const detail = await tvRes.json();
-        const titleEs = detail.name || 'Sin título';
-        const titleOriginal = detail.original_name || '';
-        const latamTitles = extractTranslations(detail);
-        const candidateTitles = Array.from(new Set([titleEs, titleOriginal, ...latamTitles])).filter(Boolean);
-
-        return {
-          title: titleEs,
-          title_es: titleEs,
-          title_original: titleOriginal,
-          candidate_titles: candidateTitles,
-          year: (detail.first_air_date || '').substring(0, 4),
-          type: 'Serie',
-          poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
-          banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
-          synopsis: detail.overview || 'Sinopsis no disponible.',
-          rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
-          genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
-          tmdbId: detail.id
-        };
+      if (mediaType === 'movie') {
+        const movieRes = await fetch(
+          `https://api.themoviedb.org/3/movie/${directTmdbId}?language=es-ES&append_to_response=translations`,
+          { headers, signal: AbortSignal.timeout(8000) }
+        );
+        if (movieRes.ok) {
+          const detail = await movieRes.json();
+          return formatMovieMeta(detail);
+        }
+        return null;
+      } else {
+        const tvRes = await fetch(
+          `https://api.themoviedb.org/3/tv/${directTmdbId}?language=es-ES&append_to_response=translations`,
+          { headers, signal: AbortSignal.timeout(8000) }
+        );
+        if (tvRes.ok) {
+          const detail = await tvRes.json();
+          return formatTvMeta(detail);
+        }
+        return null;
       }
     }
 
-    // 2. Fallback: Búsqueda por texto si no viene prefijo numérico (ej: "el-padrino")
+    // 2. Fallback para IDs numéricos sin prefijo (URLs viejas tipo "44006-chicago-fire" o "238-el-padrino")
+    const legacyMatch = idOrSlug.match(/^(\d+)(?:-(.*))?$/);
+    if (legacyMatch) {
+      const directTmdbId = parseInt(legacyMatch[1], 10);
+      const slug = legacyMatch[2] || '';
+
+      const [movieRes, tvRes] = await Promise.all([
+        fetch(
+          `https://api.themoviedb.org/3/movie/${directTmdbId}?language=es-ES&append_to_response=translations`,
+          { headers, signal: AbortSignal.timeout(8000) }
+        ),
+        fetch(
+          `https://api.themoviedb.org/3/tv/${directTmdbId}?language=es-ES&append_to_response=translations`,
+          { headers, signal: AbortSignal.timeout(8000) }
+        )
+      ]);
+
+      const movieDetail = movieRes.ok ? await movieRes.json() : null;
+      const tvDetail = tvRes.ok ? await tvRes.json() : null;
+
+      // Si ambos existen y viene slug, comparar cuál coincide mejor con el slug
+      if (movieDetail && tvDetail && slug) {
+        const movieScore = Math.max(
+          slugSimilarity(movieDetail.title || '', slug),
+          slugSimilarity(movieDetail.original_title || '', slug)
+        );
+        const tvScore = Math.max(
+          slugSimilarity(tvDetail.name || '', slug),
+          slugSimilarity(tvDetail.original_name || '', slug)
+        );
+        if (tvScore > movieScore) {
+          return formatTvMeta(tvDetail);
+        }
+        return formatMovieMeta(movieDetail);
+      }
+
+      if (movieDetail) return formatMovieMeta(movieDetail);
+      if (tvDetail) return formatTvMeta(tvDetail);
+    }
+
+    // 3. Fallback: Búsqueda por texto si no viene prefijo numérico (ej: "el-padrino")
     const query = idOrSlug.replace(/-/g, ' ');
 
-    // Buscar como Película
     const movieSearchRes = await fetch(
       `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(query)}&language=es-ES`,
       { headers, signal: AbortSignal.timeout(8000) }
@@ -153,30 +213,11 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
         );
         if (detailRes.ok) {
           const detail = await detailRes.json();
-          const titleEs = detail.title || topResult.title;
-          const titleOriginal = detail.original_title || topResult.original_title || '';
-          const latamTitles = extractTranslations(detail);
-          const candidateTitles = Array.from(new Set([titleEs, titleOriginal, ...latamTitles])).filter(Boolean);
-
-          return {
-            title: titleEs,
-            title_es: titleEs,
-            title_original: titleOriginal,
-            candidate_titles: candidateTitles,
-            year: (detail.release_date || '').substring(0, 4),
-            type: 'Película',
-            poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
-            banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
-            synopsis: detail.overview || 'Sinopsis no disponible.',
-            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
-            genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
-            tmdbId: detail.id
-          };
+          return formatMovieMeta(detail);
         }
       }
     }
 
-    // Buscar como Serie (TV)
     const tvSearchRes = await fetch(
       `https://api.themoviedb.org/3/search/tv?query=${encodeURIComponent(query)}&language=es-ES`,
       { headers, signal: AbortSignal.timeout(8000) }
@@ -192,25 +233,7 @@ async function fetchTMDBMeta(idOrSlug: string): Promise<TMDBMetaResult | null> {
         );
         if (detailRes.ok) {
           const detail = await detailRes.json();
-          const titleEs = detail.name || topResult.name;
-          const titleOriginal = detail.original_name || topResult.original_name || '';
-          const latamTitles = extractTranslations(detail);
-          const candidateTitles = Array.from(new Set([titleEs, titleOriginal, ...latamTitles])).filter(Boolean);
-
-          return {
-            title: titleEs,
-            title_es: titleEs,
-            title_original: titleOriginal,
-            candidate_titles: candidateTitles,
-            year: (detail.first_air_date || '').substring(0, 4),
-            type: 'Serie',
-            poster: detail.poster_path ? `https://image.tmdb.org/t/p/w500${detail.poster_path}` : '',
-            banner: detail.backdrop_path ? `https://image.tmdb.org/t/p/w1280${detail.backdrop_path}` : (detail.poster_path ? `https://image.tmdb.org/t/p/w1280${detail.poster_path}` : ''),
-            synopsis: detail.overview || 'Sinopsis no disponible.',
-            rating: typeof detail.vote_average === 'number' ? detail.vote_average.toFixed(1) : '0.0',
-            genres: Array.isArray(detail.genres) ? detail.genres.map((g: any) => g.name) : [],
-            tmdbId: detail.id
-          };
+          return formatTvMeta(detail);
         }
       }
     }

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
-function generateItemId(item: any): string {
+function generateItemId(item: any, mediaType: 'movie' | 'tv'): string {
   const title = item.title || item.name || 'sin-titulo';
   const slug = title
     .toLowerCase()
@@ -11,7 +11,7 @@ function generateItemId(item: any): string {
     .replace(/[^a-z0-9\s-]/g, '')
     .trim()
     .replace(/\s+/g, '-');
-  return slug ? `${item.id}-${slug}` : `${item.id}`;
+  return slug ? `${mediaType}-${item.id}-${slug}` : `${mediaType}-${item.id}`;
 }
 
 export async function GET() {
@@ -49,9 +49,10 @@ export async function GET() {
     const formatItem = (item: any, typeOverride?: 'Película' | 'Serie') => {
       const title = item.title || item.name || 'Sin título';
       const type = typeOverride || (item.name || item.first_air_date ? 'Serie' : 'Película');
+      const mediaType = type === 'Serie' ? 'tv' : 'movie';
       const itemGenres = (item.genre_ids || []).map((id: number) => genreMap.get(id)).filter(Boolean);
       return {
-        id: generateItemId(item),
+        id: generateItemId(item, mediaType),
         tmdbId: item.id,
         title,
         type,
