@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 // Importamos los iconos necesarios
-import { Search, Menu, X, Play, Bell, User, Filter, Trophy, Crown, LogOut } from 'lucide-react';
+import { Search, Menu, X, Play, Bell, User, Filter, Trophy, Crown, LogOut, Loader2, Star, Film, Tv } from 'lucide-react';
 // Importamos supabase
 import { supabase } from '@/lib/supabase';
 
@@ -16,8 +16,12 @@ interface NavbarProps {
 export const Navbar = ({ user, isGuest }: NavbarProps) => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [query, setQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMoviesMode, setIsMoviesMode] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -35,13 +39,81 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Búsqueda en vivo con debounce (300ms) y AbortController (solo en modo películas/series)
+  useEffect(() => {
+    if (!isMoviesMode || !query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setIsSearching(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/movies/search?q=${encodeURIComponent(query.trim())}`, {
+          signal: controller.signal
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(Array.isArray(data) ? data.slice(0, 8) : []);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error('Error fetching live search:', err);
+          setSearchResults([]);
+        }
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, isMoviesMode]);
+
+  // Cerrar dropdown al hacer click fuera o presionar Escape
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsSearchOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
+      setIsSearchOpen(false);
       const searchRoute = isMoviesMode ? `/movies/search?q=${encodeURIComponent(query)}` : `/search?q=${encodeURIComponent(query)}`;
       router.push(searchRoute);
       setIsMobileMenuOpen(false);
     }
+  };
+
+  const handleSelectResult = (id: string) => {
+    setIsSearchOpen(false);
+    setIsMobileMenuOpen(false);
+    router.push(`/movies/${id}`);
   };
 
   const handleLogout = async () => {
@@ -105,17 +177,95 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
         </div>
 
         {/* BUSCADOR */}
-        <div className="hidden md:flex flex-1 max-w-md mx-4">
+        <div ref={searchContainerRef} className="hidden md:flex flex-1 max-w-md mx-4 relative">
           <form onSubmit={handleSearch} className="relative w-full group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-orange-500 transition-colors" size={18} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-orange-500 transition-colors pointer-events-none" size={18} />
             <input 
               type="text" 
               placeholder={isMoviesMode ? "Buscar películas o series..." : "Buscar anime..."} 
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full bg-neutral-900/70 border border-white/10 rounded-full py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:border-orange-500 focus:bg-neutral-900 transition-all placeholder:text-neutral-500"
+              onChange={(e) => {
+                setQuery(e.target.value);
+                if (isMoviesMode && e.target.value.trim()) {
+                  setIsSearchOpen(true);
+                }
+              }}
+              onFocus={() => {
+                if (isMoviesMode && query.trim() && (searchResults.length > 0 || isSearching)) {
+                  setIsSearchOpen(true);
+                }
+              }}
+              className="w-full bg-neutral-900/70 border border-white/10 rounded-full py-2 pl-10 pr-9 text-sm text-white focus:outline-none focus:border-orange-500 focus:bg-neutral-900 transition-all placeholder:text-neutral-500"
             />
+            {isSearching && (
+              <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 text-orange-500 animate-spin pointer-events-none" size={16} />
+            )}
           </form>
+
+          {/* DROPDOWN DE RESULTADOS EN VIVO (MODO MOVIES) */}
+          {isMoviesMode && isSearchOpen && query.trim().length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-[#121212]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 divide-y divide-white/5">
+              {isSearching ? (
+                <div className="p-4 text-center text-sm text-neutral-400 flex items-center justify-center gap-2">
+                  <Loader2 size={16} className="animate-spin text-orange-500" />
+                  <span>Buscando...</span>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <div className="p-4 text-center text-sm text-neutral-400">
+                  Sin resultados para &quot;{query}&quot;
+                </div>
+              ) : (
+                <>
+                  <div className="max-h-[360px] overflow-y-auto divide-y divide-white/5">
+                    {searchResults.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => handleSelectResult(item.id)}
+                        className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-white/10 transition-colors group cursor-pointer"
+                      >
+                        {item.poster ? (
+                          <img
+                            src={item.poster}
+                            alt={item.title}
+                            className="w-10 h-14 object-cover rounded-md bg-neutral-800 flex-shrink-0"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-10 h-14 rounded-md bg-neutral-800 flex items-center justify-center text-neutral-500 flex-shrink-0">
+                            {item.type === 'Serie' ? <Tv size={18} /> : <Film size={18} />}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate group-hover:text-orange-400 transition-colors">
+                            {item.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/10 text-neutral-300">
+                              {item.type}
+                            </span>
+                            {item.rating && item.rating !== '0.0' && (
+                              <div className="flex items-center gap-1 text-xs text-amber-400 font-semibold">
+                                <Star size={12} className="fill-current" />
+                                <span>{item.rating}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    className="w-full py-2.5 px-4 text-center text-xs font-bold text-orange-400 hover:text-orange-300 hover:bg-white/5 transition-colors block border-t border-white/5 cursor-pointer"
+                  >
+                    Ver todos los resultados para &quot;{query}&quot; →
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ACCIONES DERECHA */}
@@ -202,17 +352,92 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
                </Link>
              </div>
 
-            <form onSubmit={handleSearch} className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
-              <input 
-                type="text" 
-                placeholder={isMoviesMode ? "¿Qué película o serie quieres ver?" : "¿Qué anime quieres ver?"} 
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                autoFocus
-                className="w-full bg-neutral-800/50 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-lg focus:outline-none focus:border-orange-500 transition-colors placeholder:text-neutral-500"
-              />
-            </form>
+            <div className="relative">
+              <form onSubmit={handleSearch} className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={20} />
+                <input 
+                  type="text" 
+                  placeholder={isMoviesMode ? "¿Qué película o serie quieres ver?" : "¿Qué anime quieres ver?"} 
+                  value={query}
+                  onChange={(e) => {
+                    setQuery(e.target.value);
+                    if (isMoviesMode && e.target.value.trim()) {
+                      setIsSearchOpen(true);
+                    }
+                  }}
+                  autoFocus
+                  className="w-full bg-neutral-800/50 border border-white/10 rounded-2xl py-4 pl-12 pr-10 text-white text-lg focus:outline-none focus:border-orange-500 transition-colors placeholder:text-neutral-500"
+                />
+                {isSearching && (
+                  <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-500 animate-spin pointer-events-none" size={20} />
+                )}
+              </form>
+
+              {/* DROPDOWN RESULTADOS EN MÓVIL */}
+              {isMoviesMode && isSearchOpen && query.trim().length > 0 && (
+                <div className="mt-2 bg-[#121212] border border-white/10 rounded-2xl shadow-2xl overflow-hidden divide-y divide-white/5">
+                  {isSearching ? (
+                    <div className="p-4 text-center text-sm text-neutral-400 flex items-center justify-center gap-2">
+                      <Loader2 size={16} className="animate-spin text-orange-500" />
+                      <span>Buscando...</span>
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-neutral-400">
+                      Sin resultados para &quot;{query}&quot;
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-[260px] overflow-y-auto divide-y divide-white/5">
+                        {searchResults.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleSelectResult(item.id)}
+                            className="w-full p-2.5 flex items-center gap-3 text-left hover:bg-white/10 transition-colors"
+                          >
+                            {item.poster ? (
+                              <img
+                                src={item.poster}
+                                alt={item.title}
+                                className="w-10 h-14 object-cover rounded-md bg-neutral-800 flex-shrink-0"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="w-10 h-14 rounded-md bg-neutral-800 flex items-center justify-center text-neutral-500 flex-shrink-0">
+                                {item.type === 'Serie' ? <Tv size={18} /> : <Film size={18} />}
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white truncate">
+                                {item.title}
+                              </p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-white/10 text-neutral-300">
+                                  {item.type}
+                                </span>
+                                {item.rating && item.rating !== '0.0' && (
+                                  <div className="flex items-center gap-1 text-xs text-amber-400 font-semibold">
+                                    <Star size={12} className="fill-current" />
+                                    <span>{item.rating}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSearch}
+                        className="w-full py-2.5 px-4 text-center text-xs font-bold text-orange-400 hover:bg-white/5 transition-colors block border-t border-white/5"
+                      >
+                        Ver todos los resultados para &quot;{query}&quot; →
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
 
             <div className="grid gap-2">
               <Link 

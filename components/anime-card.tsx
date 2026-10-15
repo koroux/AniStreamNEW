@@ -12,6 +12,7 @@ interface AnimeCardProps {
   type?: string;
   rating?: number | string;
   isNew?: boolean;
+  href?: string;
   [key: string]: any;
 }
 
@@ -23,10 +24,13 @@ export function AnimeCard({
   type,
   rating,
   isNew,
+  href,
 }: AnimeCardProps) {
   const displayImage = image || poster || '';
+  const link = href || `/anime/${id}`;
+
   return (
-    <Link href={`/anime/${id}`} className="group block relative">
+    <Link href={link} className="group block relative">
       <div className="relative overflow-hidden rounded-2xl aspect-[2/3] bg-neutral-900 border border-white/5">
         {/* Poster Image */}
         <img

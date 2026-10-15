@@ -27,33 +27,75 @@ export async function GET(request: Request) {
     'Accept': 'application/json'
   };
 
+  const type = searchParams.get('type') || 'all'; // 'all' | 'movie' | 'tv'
+  const genre = searchParams.get('genre'); // ID numérico de TMDB (ej: "27") o undefined
+  const pageStr = searchParams.get('page') || '1';
+  const sort = searchParams.get('sort') || 'popularity'; // 'popularity' | 'rating' | 'recent'
+
+  const pageNum = Math.max(1, parseInt(pageStr, 10) || 1);
+  const today = new Date().toISOString().split('T')[0];
+
+  const sortMovieMap: Record<string, string> = {
+    popularity: 'popularity.desc',
+    rating: 'vote_average.desc',
+    recent: 'primary_release_date.desc'
+  };
+
+  const sortTvMap: Record<string, string> = {
+    popularity: 'popularity.desc',
+    rating: 'vote_average.desc',
+    recent: 'first_air_date.desc'
+  };
+
+  const movieSort = sortMovieMap[sort] || 'popularity.desc';
+  const tvSort = sortTvMap[sort] || 'popularity.desc';
+
+  const genreParam = (genre && genre !== '0' && genre !== 'Todos' && genre !== 'null' && genre !== 'undefined')
+    ? `&with_genres=${encodeURIComponent(genre)}`
+    : '';
+
+  const voteFilter = sort === 'rating' ? '&vote_count.gte=50' : '';
+  const dateFilterMovie = sort === 'recent' ? `&primary_release_date.lte=${today}` : '';
+  const dateFilterTv = sort === 'recent' ? `&first_air_date.lte=${today}` : '';
+
   try {
-    const [movieGenresRes, tvGenresRes, moviesRes, tvRes] = await Promise.all([
+    // 1. Obtener listas de géneros para mapear nombres y alimentar los filtros
+    const [movieGenresRes, tvGenresRes] = await Promise.all([
       fetch('https://api.themoviedb.org/3/genre/movie/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/discover/movie?language=es-ES&sort_by=popularity.desc&page=1', { headers, signal: AbortSignal.timeout(8000) }),
-      fetch('https://api.themoviedb.org/3/discover/tv?language=es-ES&sort_by=popularity.desc&page=1', { headers, signal: AbortSignal.timeout(8000) })
+      fetch('https://api.themoviedb.org/3/genre/tv/list?language=es-ES', { headers, signal: AbortSignal.timeout(8000) })
     ]);
 
     const genreMap = new Map<number, string>();
+    const genresList: Array<{ id: number; name: string }> = [];
+    const seenGenreNames = new Set<string>();
+
     if (movieGenresRes.ok) {
       const data = await movieGenresRes.json();
-      (data.genres || []).forEach((g: any) => genreMap.set(g.id, g.name));
-    }
-    if (tvGenresRes.ok) {
-      const data = await tvGenresRes.json();
-      (data.genres || []).forEach((g: any) => genreMap.set(g.id, g.name));
+      (data.genres || []).forEach((g: any) => {
+        genreMap.set(g.id, g.name);
+        if (!seenGenreNames.has(g.name)) {
+          seenGenreNames.add(g.name);
+          genresList.push({ id: g.id, name: g.name });
+        }
+      });
     }
 
-    const uniqueGenresSet = new Set<string>();
-    genreMap.forEach((gName) => {
-      if (gName) uniqueGenresSet.add(gName);
-    });
-    const sortedGenres = Array.from(uniqueGenresSet).sort((a, b) => a.localeCompare(b, 'es'));
+    if (tvGenresRes.ok) {
+      const data = await tvGenresRes.json();
+      (data.genres || []).forEach((g: any) => {
+        genreMap.set(g.id, g.name);
+        if (!seenGenreNames.has(g.name)) {
+          seenGenreNames.add(g.name);
+          genresList.push({ id: g.id, name: g.name });
+        }
+      });
+    }
+
+    genresList.sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
     const formatItem = (item: any, typeOverride: 'Película' | 'Serie') => {
       const title = item.title || item.name || 'Sin título';
-      const mediaType = typeOverride === 'Serie' ? 'tv' : 'movie';
+      const mediaType: 'movie' | 'tv' = typeOverride === 'Serie' ? 'tv' : 'movie';
       const itemGenres = (item.genre_ids || []).map((id: number) => genreMap.get(id)).filter(Boolean);
       return {
         id: generateItemId(item, mediaType),
@@ -68,22 +110,72 @@ export async function GET(request: Request) {
       };
     };
 
-    let movies: any[] = [];
-    let series: any[] = [];
+    let moviesList: any[] = [];
+    let tvList: any[] = [];
+    let movieTotalPages = 1;
+    let tvTotalPages = 1;
 
-    if (moviesRes.ok) {
-      const data = await moviesRes.json();
-      movies = (data.results || []).map((m: any) => formatItem(m, 'Película'));
+    // 2. Discover según tipo
+    if (type === 'movie' || type === 'all') {
+      try {
+        const mUrl = `https://api.themoviedb.org/3/discover/movie?language=es-ES&sort_by=${movieSort}&page=${pageNum}${genreParam}${voteFilter}${dateFilterMovie}`;
+        const mRes = await fetch(mUrl, { headers, signal: AbortSignal.timeout(8000) });
+        if (mRes.ok) {
+          const mData = await mRes.json();
+          movieTotalPages = mData.total_pages || 1;
+          moviesList = (mData.results || []).map((m: any) => formatItem(m, 'Película'));
+        }
+      } catch (err) {
+        console.error('Error fetching discover movie:', err);
+      }
     }
-    if (tvRes.ok) {
-      const data = await tvRes.json();
-      series = (data.results || []).map((tv: any) => formatItem(tv, 'Serie'));
+
+    if (type === 'tv' || type === 'all') {
+      try {
+        const tvUrl = `https://api.themoviedb.org/3/discover/tv?language=es-ES&sort_by=${tvSort}&page=${pageNum}${genreParam}${voteFilter}${dateFilterTv}`;
+        const tvRes = await fetch(tvUrl, { headers, signal: AbortSignal.timeout(8000) });
+        if (tvRes.ok) {
+          const tvData = await tvRes.json();
+          tvTotalPages = tvData.total_pages || 1;
+          tvList = (tvData.results || []).map((t: any) => formatItem(t, 'Serie'));
+        }
+      } catch (err) {
+        console.error('Error fetching discover tv:', err);
+      }
     }
+
+    let items: any[] = [];
+    let totalPages = 1;
+
+    if (type === 'movie') {
+      items = moviesList;
+      totalPages = movieTotalPages;
+    } else if (type === 'tv') {
+      items = tvList;
+      totalPages = tvTotalPages;
+    } else {
+      // type === 'all': Mezclar alternando película y serie
+      const maxLen = Math.max(moviesList.length, tvList.length);
+      const interleaved: any[] = [];
+      for (let i = 0; i < maxLen; i++) {
+        if (i < moviesList.length) interleaved.push(moviesList[i]);
+        if (i < tvList.length) interleaved.push(tvList[i]);
+      }
+      items = interleaved;
+      totalPages = Math.max(movieTotalPages, tvTotalPages);
+    }
+
+    // Deduplicar por id
+    const uniqueItems = Array.from(new Map(items.map(item => [item.id, item])).values());
+    const cappedTotalPages = Math.min(500, totalPages);
+    const hasMore = pageNum < cappedTotalPages && uniqueItems.length > 0;
 
     return NextResponse.json({
-      movies,
-      series,
-      genres: ['Todos', ...sortedGenres]
+      items: uniqueItems,
+      page: pageNum,
+      totalPages: cappedTotalPages,
+      hasMore,
+      genres: genresList
     });
 
   } catch (err) {

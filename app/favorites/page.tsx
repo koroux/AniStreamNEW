@@ -7,6 +7,13 @@ import { Navbar } from '@/components/navbar';
 import { AnimeCard } from '@/components/anime-card';
 import { Loader2, Heart } from 'lucide-react';
 
+function getItemRoute(id: string): string {
+  if (id.startsWith('movie-') || id.startsWith('tv-')) {
+    return `/movies/${id}`;
+  }
+  return `/anime/${id}`;
+}
+
 export default function FavoritesPage() {
   const router = useRouter();
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -38,7 +45,9 @@ export default function FavoritesPage() {
           let p = fav.poster;
           if (!p || p.includes('logo') || p.includes('banner') || !p.startsWith('http')) {
             try {
-              const searchRes = await fetch(`/api/search?q=${encodeURIComponent(fav.anime_id)}`);
+              const isMovies = fav.anime_id.startsWith('movie-') || fav.anime_id.startsWith('tv-');
+              const endpoint = isMovies ? '/api/movies/search' : '/api/search';
+              const searchRes = await fetch(`${endpoint}?q=${encodeURIComponent(fav.anime_id)}`);
               const searchData = await searchRes.json();
               if (Array.isArray(searchData) && searchData.length > 0 && searchData[0].poster && !searchData[0].poster.includes('logo')) {
                 p = searchData[0].poster;
@@ -85,24 +94,24 @@ export default function FavoritesPage() {
         ) : favorites.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {favorites.map((fav) => (
-              // Mapeamos los datos de la tabla a las props del Card
               <AnimeCard 
                 key={fav.id} 
                 id={fav.anime_id} 
                 title={fav.title} 
-                image={fav.poster || fav.image_url} // Aceptamos ambos nombres por si acaso
+                image={fav.poster || fav.image_url}
+                href={getItemRoute(fav.anime_id)}
               />
             ))}
           </div>
         ) : (
-          // Estado Vacío (Si no ha guardado nada)
+          /* Estado Vacío (Si no ha guardado nada) */
           <div className="flex flex-col items-center justify-center py-20 text-center opacity-50">
             <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-4">
               <Heart size={40} className="text-gray-600" />
             </div>
             <h2 className="text-xl font-bold mb-2">Tu lista está vacía</h2>
             <p className="text-gray-400 max-w-md">
-              Aún no has guardado ningún anime. Ve al inicio y dale al botón &quot;+ Mi Lista&quot; en tus series favoritas.
+              Aún no has guardado nada. Ve al inicio y dale al botón &quot;+ Mi Lista&quot; en tus series, películas o animes favoritos.
             </p>
           </div>
         )}

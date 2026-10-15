@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Navbar } from '@/components/navbar';
-import { Play, Plus, Check, Loader2, Star, ArrowLeft, Tv, Film, Server } from 'lucide-react';
+import { Play, Plus, Check, Loader2, Star, ArrowLeft, Tv, Film, Server, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 export default function MovieDetailPage() {
@@ -163,9 +163,22 @@ export default function MovieDetailPage() {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 />
               ) : (
-                <div className="text-neutral-400 text-center p-8">
-                  <p className="text-lg font-bold mb-2">No hay servidores disponibles para este título por el momento.</p>
-                  <p className="text-sm">Intenta seleccionar otro título o vuelve más tarde.</p>
+                <div className="text-neutral-400 text-center p-8 max-w-md mx-auto flex flex-col items-center">
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-orange-500 mb-4 shadow-inner">
+                    <AlertCircle size={32} />
+                  </div>
+                  <p className="text-lg font-bold text-white mb-2 leading-snug">
+                    Este título aún no está disponible en AniStream. Estamos trabajando para agregarlo pronto.
+                  </p>
+                  <p className="text-sm text-neutral-400 mb-6">
+                    Puedes explorar otros títulos disponibles en nuestro catálogo.
+                  </p>
+                  <Link
+                    href="/movies/browse"
+                    className="bg-orange-600 hover:bg-orange-500 text-white font-bold px-6 py-2.5 rounded-xl text-sm transition-all transform hover:scale-105 shadow-lg shadow-orange-900/40 inline-flex items-center gap-2"
+                  >
+                    Explorar otros títulos
+                  </Link>
                 </div>
               )}
             </div>
