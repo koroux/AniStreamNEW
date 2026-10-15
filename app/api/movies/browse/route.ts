@@ -66,16 +66,17 @@ export async function GET(request: Request) {
     ]);
 
     const genreMap = new Map<number, string>();
-    const genresList: Array<{ id: number; name: string }> = [];
-    const seenGenreNames = new Set<string>();
+    const genresMap = new Map<number, { id: number; name: string; types: ('movie' | 'tv')[] }>();
 
     if (movieGenresRes.ok) {
       const data = await movieGenresRes.json();
       (data.genres || []).forEach((g: any) => {
         genreMap.set(g.id, g.name);
-        if (!seenGenreNames.has(g.name)) {
-          seenGenreNames.add(g.name);
-          genresList.push({ id: g.id, name: g.name });
+        const existing = genresMap.get(g.id);
+        if (existing) {
+          if (!existing.types.includes('movie')) existing.types.push('movie');
+        } else {
+          genresMap.set(g.id, { id: g.id, name: g.name, types: ['movie'] });
         }
       });
     }
@@ -84,14 +85,82 @@ export async function GET(request: Request) {
       const data = await tvGenresRes.json();
       (data.genres || []).forEach((g: any) => {
         genreMap.set(g.id, g.name);
-        if (!seenGenreNames.has(g.name)) {
-          seenGenreNames.add(g.name);
-          genresList.push({ id: g.id, name: g.name });
+        const existing = genresMap.get(g.id);
+        if (existing) {
+          if (!existing.types.includes('tv')) existing.types.push('tv');
+        } else {
+          genresMap.set(g.id, { id: g.id, name: g.name, types: ['tv'] });
         }
       });
     }
 
+    // Mapeo de géneros equivalentes en TMDB:
+    // En TMDB, Acción en películas es 28 y en series es 10759 ("Action & Adventure")
+    const MOVIE_TO_TV_GENRE: Record<number, number> = {
+      28: 10759
+    };
+    const TV_TO_MOVIE_GENRE: Record<number, number> = {
+      10759: 28
+    };
+
+    if (genresMap.has(28)) {
+      const g28 = genresMap.get(28)!;
+      if (!g28.types.includes('tv')) g28.types.push('tv');
+    }
+
+    const genresList = Array.from(genresMap.values());
     genresList.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
+    // Determinar qué endpoints llamar según tipo y compatibilidad de género
+    const requestedGenreId = (genre && genre !== '0' && genre !== 'Todos' && genre !== 'null' && genre !== 'undefined')
+      ? parseInt(genre, 10)
+      : null;
+    const genreItem = requestedGenreId !== null
+      ? genresList.find(g => g.id === requestedGenreId)
+      : null;
+
+    let shouldFetchMovie = false;
+    let shouldFetchTv = false;
+
+    if (!genreItem) {
+      if (type === 'all' || type === 'movie') shouldFetchMovie = true;
+      if (type === 'all' || type === 'tv') shouldFetchTv = true;
+    } else {
+      if (type === 'movie') {
+        if (genreItem.types.includes('movie')) {
+          shouldFetchMovie = true;
+        } else {
+          return NextResponse.json({
+            items: [],
+            page: pageNum,
+            totalPages: 0,
+            hasMore: false,
+            genres: genresList
+          });
+        }
+      } else if (type === 'tv') {
+        if (genreItem.types.includes('tv')) {
+          shouldFetchTv = true;
+        } else {
+          return NextResponse.json({
+            items: [],
+            page: pageNum,
+            totalPages: 0,
+            hasMore: false,
+            genres: genresList
+          });
+        }
+      } else {
+        // type === 'all'
+        if (genreItem.types.includes('movie')) shouldFetchMovie = true;
+        if (genreItem.types.includes('tv')) shouldFetchTv = true;
+      }
+    }
+
+    const movieGenreId = requestedGenreId ? (TV_TO_MOVIE_GENRE[requestedGenreId] || requestedGenreId) : null;
+    const tvGenreId = requestedGenreId ? (MOVIE_TO_TV_GENRE[requestedGenreId] || requestedGenreId) : null;
+    const movieGenreParam = movieGenreId ? `&with_genres=${movieGenreId}` : '';
+    const tvGenreParam = tvGenreId ? `&with_genres=${tvGenreId}` : '';
 
     const formatItem = (item: any, typeOverride: 'Película' | 'Serie') => {
       const title = item.title || item.name || 'Sin título';
@@ -115,10 +184,10 @@ export async function GET(request: Request) {
     let movieTotalPages = 1;
     let tvTotalPages = 1;
 
-    // 2. Discover según tipo
-    if (type === 'movie' || type === 'all') {
+    // 2. Discover según selección
+    if (shouldFetchMovie) {
       try {
-        const mUrl = `https://api.themoviedb.org/3/discover/movie?language=es-ES&sort_by=${movieSort}&page=${pageNum}${genreParam}${voteFilter}${dateFilterMovie}`;
+        const mUrl = `https://api.themoviedb.org/3/discover/movie?language=es-ES&sort_by=${movieSort}&page=${pageNum}${movieGenreParam}${voteFilter}${dateFilterMovie}`;
         const mRes = await fetch(mUrl, { headers, signal: AbortSignal.timeout(8000) });
         if (mRes.ok) {
           const mData = await mRes.json();
@@ -130,9 +199,9 @@ export async function GET(request: Request) {
       }
     }
 
-    if (type === 'tv' || type === 'all') {
+    if (shouldFetchTv) {
       try {
-        const tvUrl = `https://api.themoviedb.org/3/discover/tv?language=es-ES&sort_by=${tvSort}&page=${pageNum}${genreParam}${voteFilter}${dateFilterTv}`;
+        const tvUrl = `https://api.themoviedb.org/3/discover/tv?language=es-ES&sort_by=${tvSort}&page=${pageNum}${tvGenreParam}${voteFilter}${dateFilterTv}`;
         const tvRes = await fetch(tvUrl, { headers, signal: AbortSignal.timeout(8000) });
         if (tvRes.ok) {
           const tvData = await tvRes.json();
@@ -147,13 +216,13 @@ export async function GET(request: Request) {
     let items: any[] = [];
     let totalPages = 1;
 
-    if (type === 'movie') {
+    if (shouldFetchMovie && !shouldFetchTv) {
       items = moviesList;
       totalPages = movieTotalPages;
-    } else if (type === 'tv') {
+    } else if (shouldFetchTv && !shouldFetchMovie) {
       items = tvList;
       totalPages = tvTotalPages;
-    } else {
+    } else if (shouldFetchMovie && shouldFetchTv) {
       // type === 'all': Mezclar alternando película y serie
       const maxLen = Math.max(moviesList.length, tvList.length);
       const interleaved: any[] = [];

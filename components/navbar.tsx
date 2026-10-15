@@ -204,7 +204,7 @@ export const Navbar = ({ user, isGuest }: NavbarProps) => {
 
           {/* DROPDOWN DE RESULTADOS EN VIVO (MODO MOVIES) */}
           {isMoviesMode && isSearchOpen && query.trim().length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-[#121212]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 divide-y divide-white/5">
+            <div className="absolute top-full mt-2 right-0 w-full md:w-[380px] lg:w-full max-w-[calc(100vw-2rem)] bg-[#121212]/95 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 divide-y divide-white/5">
               {isSearching ? (
                 <div className="p-4 text-center text-sm text-neutral-400 flex items-center justify-center gap-2">
                   <Loader2 size={16} className="animate-spin text-orange-500" />

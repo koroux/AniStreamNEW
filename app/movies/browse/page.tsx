@@ -8,6 +8,7 @@ import { Loader2, Film, Tv, Star, Play, Filter, Flame, Award, Clock, Check } fro
 interface GenreItem {
   id: number;
   name: string;
+  types: ('movie' | 'tv')[];
 }
 
 export default function MoviesBrowsePage() {
@@ -26,6 +27,27 @@ export default function MoviesBrowsePage() {
   const [user, setUser] = useState<any>(null);
   const loaderRef = useRef<HTMLDivElement | null>(null);
   const isFetchingRef = useRef(false);
+
+  // Reseteo automático de selectedGenre si no aplica al tipo seleccionado
+  useEffect(() => {
+    if (selectedGenre !== null && genres.length > 0) {
+      const g = genres.find((x) => x.id === selectedGenre);
+      if (g && Array.isArray(g.types)) {
+        if (filterType === 'movie' && !g.types.includes('movie')) {
+          setSelectedGenre(null);
+        } else if (filterType === 'tv' && !g.types.includes('tv')) {
+          setSelectedGenre(null);
+        }
+      }
+    }
+  }, [filterType, genres, selectedGenre]);
+
+  // Filtrar géneros visibles según filterType
+  const visibleGenres = genres.filter((g) => {
+    if (filterType === 'movie') return g.types && g.types.includes('movie');
+    if (filterType === 'tv') return g.types && g.types.includes('tv');
+    return true; // 'all' -> mostrar todos
+  });
 
   useEffect(() => {
     const savedUser = localStorage.getItem('userData');
@@ -250,7 +272,7 @@ export default function MoviesBrowsePage() {
         </div>
 
         {/* CHIPS HORIZONTALES DE GÉNEROS */}
-        {genres.length > 0 && (
+        {visibleGenres.length > 0 && (
           <div className="relative mb-8">
             <div className="flex items-center gap-2 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-white/10">
               <div className="flex items-center gap-1.5 text-orange-500 font-bold text-xs uppercase tracking-wider pl-1 pr-2 flex-shrink-0">
@@ -271,7 +293,7 @@ export default function MoviesBrowsePage() {
                 Todos los géneros
               </button>
 
-              {genres.map((g) => {
+              {visibleGenres.map((g) => {
                 const isActive = selectedGenre === g.id;
                 return (
                   <button
