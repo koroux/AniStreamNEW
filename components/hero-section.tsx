@@ -17,6 +17,24 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
   const [displayAnime, setDisplayAnime] = useState(anime);
   const [prevAnime, setPrevAnime] = useState<any>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(true);
+  const [welcomeFading, setWelcomeFading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const fadeTimer = setTimeout(() => {
+      setWelcomeFading(true);
+    }, 3500);
+
+    const removeTimer = setTimeout(() => {
+      setShowWelcome(false);
+    }, 4800);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, [user]);
 
   useEffect(() => {
     if (anime && anime.id !== displayAnime?.id) {
@@ -182,46 +200,27 @@ export function HeroSection({ anime, user, trendingList = [], currentIndex = 0, 
           </div>
         </div>
 
-        {/* 4. PREVISUALIZACIONES ESTILO NETFLIX (MINIATURAS AMPLIADAS CON TÍTULOS) */}
-        {trendingList.length > 1 && (
-          <div className="hidden lg:flex flex-col items-end justify-center gap-2.5 z-30 absolute right-8 bottom-10 bg-black/80 backdrop-blur-xl p-3.5 rounded-2xl border border-white/15 shadow-2xl max-w-sm">
-            <span className="text-[10px] uppercase font-bold tracking-widest text-orange-400 mb-1 px-1">Previsualizaciones</span>
-            {trendingList.slice(0, 5).map((item, idx) => (
-              <button
-                key={item.id}
-                onClick={() => onSelectIndex && onSelectIndex(idx)}
-                className={`group flex items-center gap-3.5 transition-all p-2.5 rounded-xl w-full text-left ${
-                  currentIndex === idx 
-                    ? 'bg-white/20 border border-orange-500 shadow-xl scale-102' 
-                    : 'hover:bg-white/10 opacity-75 hover:opacity-100'
-                }`}
-              >
-                <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 bg-neutral-900 border border-white/15 shadow-md">
-                  <img src={item.poster} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                </div>
-                <span className={`text-xs font-bold transition-colors line-clamp-2 ${currentIndex === idx ? 'text-white' : 'text-neutral-300 group-hover:text-white'}`}>
-                  {item.title}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* TARJETA DE BIENVENIDA */}
-        {user && (
-          <div className="hidden lg:flex flex-col items-end justify-center h-full pr-6 pointer-events-none select-none z-30 absolute right-0 top-0 bottom-0">
-            <div className="bg-black/40 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-2xl flex items-center gap-4 shadow-2xl pointer-events-auto">
+        {/* TARJETA DE BIENVENIDA SUTIL CON FADE OUT */}
+        {user && showWelcome && (
+          <div
+            className={`hidden lg:flex flex-col items-end justify-center pointer-events-none select-none z-30 absolute right-8 top-10 transition-all duration-1000 ease-out ${
+              welcomeFading
+                ? 'opacity-0 -translate-y-3'
+                : 'opacity-100 translate-y-0'
+            }`}
+          >
+            <div className="bg-black/50 backdrop-blur-xl border border-white/10 px-5 py-3 rounded-2xl flex items-center gap-3.5 shadow-2xl">
                <div className="flex flex-col text-right">
-                  <span className="text-[12px] text-orange-400 font-bold tracking-[0.2em] uppercase mb-0.5">
+                  <span className="text-[10px] text-orange-400 font-bold tracking-[0.2em] uppercase mb-0.5">
                     Bienvenido
                   </span>
-                  <span className="text-2xl font-black text-white tracking-tight">
+                  <span className="text-lg font-black text-white tracking-tight">
                     {user.user_metadata?.full_name?.split(' ')[0] || user.name || "Nakama"}
                   </span>
                </div>
-               <div className="w-[1px] h-8 bg-white/20"></div>
-               <div className="w-11 h-11 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-bold shadow-lg text-base">
-                  {user.user_metadata?.full_name ? user.user_metadata.full_name[0].toUpperCase() : "N"}
+               <div className="w-[1px] h-7 bg-white/15"></div>
+               <div className="w-9 h-9 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-white font-bold shadow-md text-sm">
+                  {user.user_metadata?.full_name ? user.user_metadata.full_name[0].toUpperCase() : (user.name ? user.name[0].toUpperCase() : "N")}
                </div>
             </div>
           </div>
