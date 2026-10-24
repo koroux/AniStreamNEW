@@ -584,23 +584,33 @@ function extractServersFromMoviePage(html: string): Array<{ nombre: string; url:
   }
 }
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const id = searchParams.get('id') || '';
 
   if (!id) {
-    return NextResponse.json({ error: 'ID o slug requerido' }, { status: 400 });
+    return NextResponse.json({ error: 'ID o slug requerido' }, { status: 400, headers: corsHeaders });
   }
 
   let tmdbMeta: TMDBMetaResult | null = null;
   try {
     tmdbMeta = await getCachedTMDBMeta(id);
   } catch (err) {
-    return NextResponse.json({ error: 'Error conectando con TMDB' }, { status: 500 });
+    return NextResponse.json({ error: 'Error conectando con TMDB' }, { status: 500, headers: corsHeaders });
   }
 
   if (!tmdbMeta) {
-    return NextResponse.json({ error: 'Título no encontrado en TMDB' }, { status: 404 });
+    return NextResponse.json({ error: 'Título no encontrado en TMDB' }, { status: 404, headers: corsHeaders });
   }
 
   const isSerie = tmdbMeta.type === 'Serie';
@@ -658,5 +668,5 @@ export async function GET(request: Request) {
     responsePayload.seasons = seasonsData;
   }
 
-  return NextResponse.json(responsePayload);
+  return NextResponse.json(responsePayload, { headers: corsHeaders });
 }

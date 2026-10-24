@@ -110,17 +110,33 @@ const getHomeData = unstable_cache(
   { revalidate: 1800 } // 30 minutos de caché
 );
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
+
 export async function GET() {
   const token = process.env.TMDB_READ_TOKEN;
   if (!token) {
-    return NextResponse.json({ error: 'TMDB_READ_TOKEN is not configured' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'TMDB_READ_TOKEN is not configured' },
+      { status: 500, headers: corsHeaders }
+    );
   }
 
   try {
     const data = await getHomeData();
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: corsHeaders });
   } catch (err) {
     console.error('Error fetching TMDB home data:', err);
-    return NextResponse.json({ error: 'Error al conectar con TMDB' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Error al conectar con TMDB' },
+      { status: 500, headers: corsHeaders }
+    );
   }
 }

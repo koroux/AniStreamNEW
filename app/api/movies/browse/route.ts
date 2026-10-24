@@ -285,12 +285,25 @@ const getBrowseData = unstable_cache(
   { revalidate: 1800 } // 30 minutos de caché
 );
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
   const token = process.env.TMDB_READ_TOKEN;
   if (!token) {
-    return NextResponse.json({ error: 'TMDB_READ_TOKEN is not configured' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'TMDB_READ_TOKEN is not configured' },
+      { status: 500, headers: corsHeaders }
+    );
   }
 
   const type = searchParams.get('type') || 'all'; // 'all' | 'movie' | 'tv'
@@ -301,9 +314,12 @@ export async function GET(request: Request) {
 
   try {
     const data = await getBrowseData(type, genre, pageNum, sort);
-    return NextResponse.json(data);
+    return NextResponse.json(data, { headers: corsHeaders });
   } catch (err) {
     console.error('Error in movies browse API:', err);
-    return NextResponse.json({ error: 'Error al obtener catálogo de TMDB' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Error al obtener catálogo de TMDB' },
+      { status: 500, headers: corsHeaders }
+    );
   }
 }
