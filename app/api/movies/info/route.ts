@@ -544,8 +544,145 @@ async function searchMovieOnCineCalidad(
   }
 }
 
-function extractServersFromMoviePage(html: string): Array<{ nombre: string; url: string }> {
-  const servers: Array<{ nombre: string; url: string }> = [];
+async function extractDirectStream(serverName: string, embedUrl: string): Promise<string | null> {
+  const normalized = serverName.toLowerCase();
+
+  try {
+    // 1. VOE Extractor (Referer: https://voe.sx/, regex robusto, búsqueda de JSON y API)
+    if (normalized.includes('voe') || embedUrl.includes('voe.sx')) {
+      const voeHeaders = {
+        'User-Agent': CHROME_USER_AGENT,
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Referer': 'https://voe.sx/'
+      };
+
+      const res = await fetch(embedUrl, { headers: voeHeaders, signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        let text = await res.text();
+
+        // Si Voe usa redirección por script (window.location.href = '...')
+        const redirectMatch = text.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/i);
+        if (redirectMatch && redirectMatch[1]) {
+          try {
+            const redirectUrl = redirectMatch[1].startsWith('http') ? redirectMatch[1] : `https://voe.sx${redirectMatch[1]}`;
+            const redRes = await fetch(redirectUrl, { headers: voeHeaders, signal: AbortSignal.timeout(4000) });
+            if (redRes.ok) {
+              text = await redRes.text();
+            }
+          } catch (e) {}
+        }
+
+        // A. Regex Robusto para HLS (.m3u8) o MP4
+        const robustMatch = text.match(/["'](?:hls|mp4)["']\s*:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i);
+        if (robustMatch && robustMatch[1]) {
+          return robustMatch[1];
+        }
+
+        // B. Búsqueda en script con id __NEXT_DATA__
+        const nextDataMatch = text.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+        if (nextDataMatch && nextDataMatch[1]) {
+          try {
+            const nextJson = JSON.parse(nextDataMatch[1]);
+            const findStream = (obj: any): string | null => {
+              if (!obj || typeof obj !== 'object') return null;
+              if (typeof obj.hls === 'string' && (obj.hls.includes('.m3u8') || obj.hls.startsWith('http'))) return obj.hls;
+              if (typeof obj.mp4 === 'string' && (obj.mp4.includes('.mp4') || obj.mp4.startsWith('http'))) return obj.mp4;
+              for (const k of Object.keys(obj)) {
+                const found = findStream(obj[k]);
+                if (found) return found;
+              }
+              return null;
+            };
+            const streamFound = findStream(nextJson);
+            if (streamFound) return streamFound;
+          } catch (e) {}
+        }
+
+        // C. Búsqueda de objeto JSON en variables JS (ej. sources = { ... })
+        const sourcesObjMatch = text.match(/(?:var|let|const)?\s*(?:sources|source)\s*=\s*(\{[\s\S]*?\});/i);
+        if (sourcesObjMatch && sourcesObjMatch[1]) {
+          try {
+            const parsed = JSON.parse(sourcesObjMatch[1].replace(/'/g, '"'));
+            if (parsed.hls && typeof parsed.hls === 'string') return parsed.hls;
+            if (parsed.mp4 && typeof parsed.mp4 === 'string') return parsed.mp4;
+          } catch (e) {}
+        }
+
+        // D. Petición a API interna si existe (como /api/...)
+        const apiMatch = text.match(/["'](\/(?:api|source|player)\/[^"']+)["']/i);
+        if (apiMatch && apiMatch[1]) {
+          try {
+            const domain = new URL(embedUrl).origin;
+            const apiUrl = apiMatch[1].startsWith('http') ? apiMatch[1] : `${domain}${apiMatch[1]}`;
+            const apiRes = await fetch(apiUrl, {
+              headers: {
+                'User-Agent': CHROME_USER_AGENT,
+                'Accept': 'application/json, text/plain, */*',
+                'Referer': 'https://voe.sx/'
+              },
+              signal: AbortSignal.timeout(4000)
+            });
+            if (apiRes.ok) {
+              const apiText = await apiRes.text();
+              const apiRegexMatch = apiText.match(/["'](?:hls|mp4)["']\s*:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i);
+              if (apiRegexMatch && apiRegexMatch[1]) return apiRegexMatch[1];
+
+              try {
+                const apiJson = JSON.parse(apiText);
+                if (apiJson.hls) return apiJson.hls;
+                if (apiJson.mp4) return apiJson.mp4;
+                if (apiJson.file) return apiJson.file;
+                if (apiJson.url) return apiJson.url;
+              } catch (e) {}
+            }
+          } catch (e) {}
+        }
+      }
+    }
+
+    // 2. YourUpload Extractor (busca file: 'https://...mp4' en jwplayer)
+    if (normalized.includes('yourupload') || embedUrl.includes('yourupload.com')) {
+      const res = await fetch(embedUrl, {
+        headers: {
+          'User-Agent': CHROME_USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Referer': 'https://www.cinecalidad.am/'
+        },
+        signal: AbortSignal.timeout(4000)
+      });
+      if (res.ok) {
+        const text = await res.text();
+        const fileMatch = text.match(/file:\s*'([^']+\.mp4[^']*)'/i) || text.match(/file:\s*"([^"]+\.mp4[^"]*)"/i);
+        if (fileMatch && fileMatch[1]) {
+          const directCandidate = fileMatch[1].trim();
+          if (directCandidate.startsWith('http') && !directCandidate.includes('novideo')) {
+            return directCandidate;
+          }
+        }
+      }
+    }
+
+    // 3. Si el enlace ya es directo .m3u8 o .mp4
+    if (embedUrl.startsWith('http') && !embedUrl.includes('novideo') && (embedUrl.includes('.m3u8') || embedUrl.endsWith('.mp4'))) {
+      return embedUrl;
+    }
+
+  } catch (err) {
+    // Si falla la extracción, el backend continúa sin romper la app
+  }
+
+  return null;
+}
+
+interface MovieServer {
+  nombre: string;
+  url: string;
+  directUrl: string | null;
+  isDirect: boolean;
+}
+
+async function extractServersFromMoviePage(html: string): Promise<MovieServer[]> {
+  const rawServers: Array<{ nombre: string; url: string }> = [];
 
   try {
     const $ = cheerio.load(html);
@@ -570,12 +707,33 @@ function extractServersFromMoviePage(html: string): Array<{ nombre: string; url:
       const isTrailerName = nombre.toLowerCase().includes('trailer');
 
       if (!isTrailerClass && !isTrailerUrl && !isTrailerName && url) {
-        if (!servers.some(s => s.url === url)) {
+        if (!rawServers.some(s => s.url === url)) {
           const finalUrl = url.startsWith('http') ? url : 'https:' + url;
-          servers.push({ nombre, url: finalUrl });
+          rawServers.push({ nombre, url: finalUrl });
         }
       }
     });
+
+    const servers: MovieServer[] = await Promise.all(
+      rawServers.map(async (s) => {
+        try {
+          const directStream = await extractDirectStream(s.nombre, s.url);
+          return {
+            nombre: s.nombre,
+            url: s.url,
+            directUrl: directStream || null,
+            isDirect: Boolean(directStream)
+          };
+        } catch (err) {
+          return {
+            nombre: s.nombre,
+            url: s.url,
+            directUrl: null,
+            isDirect: false
+          };
+        }
+      })
+    );
 
     return servers;
   } catch (err) {
@@ -614,7 +772,7 @@ export async function GET(request: Request) {
   }
 
   const isSerie = tmdbMeta.type === 'Serie';
-  let servers: Array<{ nombre: string; url: string }> = [];
+  let servers: MovieServer[] = [];
 
   try {
     const candidateTitles = tmdbMeta.candidate_titles && tmdbMeta.candidate_titles.length > 0
@@ -634,7 +792,7 @@ export async function GET(request: Request) {
 
       if (res.ok) {
         const html = await res.text();
-        servers = extractServersFromMoviePage(html);
+        servers = await extractServersFromMoviePage(html);
       }
     }
   } catch (err) {
@@ -661,7 +819,12 @@ export async function GET(request: Request) {
     rating: tmdbMeta.rating,
     genres: tmdbMeta.genres,
     type: tmdbMeta.type,
-    servers: servers.map(s => ({ name: s.nombre, url: s.url }))
+    servers: servers.map(s => ({
+      name: s.nombre,
+      url: s.url,
+      directUrl: s.directUrl,
+      isDirect: s.isDirect
+    }))
   };
 
   if (isSerie) {
