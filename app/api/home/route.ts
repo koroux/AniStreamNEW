@@ -3,6 +3,16 @@ import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
+
 async function scrapeList(urlTarget: string) {
   try {
     const response = await fetch(urlTarget, {
@@ -50,13 +60,16 @@ export async function GET() {
     const newReleases = await scrapeList('https://tioanime.com/directorio?sort=recent');
     const classics = await scrapeList('https://tioanime.com/directorio?status=2&sort=-recent');
 
-    return NextResponse.json({
-      trending: trending.slice(0, 10),
-      newReleases: newReleases.slice(0, 10),
-      classics: classics.slice(0, 10)
-    });
+    return NextResponse.json(
+      {
+        trending: trending.slice(0, 10),
+        newReleases: newReleases.slice(0, 10),
+        classics: classics.slice(0, 10)
+      },
+      { headers: corsHeaders }
+    );
   } catch (error) {
     console.error('Error home API:', error);
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno' }, { status: 500, headers: corsHeaders });
   }
 }

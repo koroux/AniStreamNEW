@@ -3,11 +3,23 @@ import * as cheerio from 'cheerio';
 
 export const dynamic = 'force-dynamic';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get('q');
 
-  if (!query) return NextResponse.json([]);
+  if (!query) {
+    return NextResponse.json([], { headers: corsHeaders });
+  }
 
   try {
     const targetUrl = `https://tioanime.com/directorio?q=${encodeURIComponent(query)}`;
@@ -21,7 +33,7 @@ export async function GET(request: Request) {
     });
 
     if (!response.ok) {
-      return NextResponse.json([]);
+      return NextResponse.json([], { headers: corsHeaders });
     }
 
     const html = await response.text();
@@ -46,10 +58,10 @@ export async function GET(request: Request) {
       }
     });
 
-    return NextResponse.json(animes);
+    return NextResponse.json(animes, { headers: corsHeaders });
 
   } catch (error) {
     console.error('Error Search API:', error);
-    return NextResponse.json([], { status: 500 });
+    return NextResponse.json([], { status: 500, headers: corsHeaders });
   }
 }

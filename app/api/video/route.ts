@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 200, headers: corsHeaders });
+}
+
 async function extractDirectStream(serverName: string, embedUrl: string): Promise<string | null> {
   const normalized = serverName.toLowerCase();
 
@@ -58,7 +68,7 @@ export async function GET(request: Request) {
   const epNumber = searchParams.get('ep');
 
   if (!animeId || !epNumber) {
-    return NextResponse.json({ error: 'Datos incompletos' }, { status: 400 });
+    return NextResponse.json({ error: 'Datos incompletos' }, { status: 400, headers: corsHeaders });
   }
 
   try {
@@ -73,14 +83,14 @@ export async function GET(request: Request) {
     });
 
     if (!response.ok) {
-      return NextResponse.json({ error: 'Episodio no encontrado' }, { status: 503 });
+      return NextResponse.json({ error: 'Episodio no encontrado' }, { status: 503, headers: corsHeaders });
     }
 
     const html = await response.text();
     const match = html.match(/var videos = (\[.*?\]);/s);
 
     if (!match || !match[1]) {
-      return NextResponse.json({ error: 'No se encontraron videos' }, { status: 404 });
+      return NextResponse.json({ error: 'No se encontraron videos' }, { status: 404, headers: corsHeaders });
     }
 
     const rawServers = JSON.parse(match[1]);
@@ -127,10 +137,10 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json({ servers, downloadLinks });
+    return NextResponse.json({ servers, downloadLinks }, { headers: corsHeaders });
 
   } catch (error) {
     console.error('Error Video API:', error);
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 });
+    return NextResponse.json({ error: 'Error interno' }, { status: 500, headers: corsHeaders });
   }
 }
