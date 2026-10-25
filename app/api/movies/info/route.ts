@@ -544,103 +544,188 @@ async function searchMovieOnCineCalidad(
   }
 }
 
+function unpackerEval(htmlContent: string): string | null {
+  try {
+    const packerRegex = /\}\s*\('(.*)',\s*(\d+),\s*(\d+),\s*'(.*)'\.split\(\|'\)\)/s;
+    const match = htmlContent.match(packerRegex);
+    if (!match) return null;
+
+    const payload = match[1].replace(/\\'/g, "'");
+    const radix = parseInt(match[2], 10);
+    const symtab = match[4].split('|');
+
+    const unbase = (val: string, r: number) => {
+      const alpha = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      let res = 0;
+      for (let i = 0; i < val.length; i++) {
+        res = (res * r) + alpha.indexOf(val[i]);
+      }
+      return res;
+    };
+
+    return payload.replace(/\b\w+\b/g, (word) => {
+      const index = unbase(word, radix);
+      return (index < symtab.length && symtab[index] !== "") ? symtab[index] : word;
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
 async function extractDirectStream(serverName: string, embedUrl: string): Promise<string | null> {
   const normalized = serverName.toLowerCase();
 
+  // 1. Vimeos: imposible de extraer, retornar null para que la app use WebView de respaldo
+  if (normalized.includes('vimeo')) {
+    return null;
+  }
+
   try {
-    // 1. VOE Extractor (Referer: https://voe.sx/, regex robusto, búsqueda de JSON y API)
-    if (normalized.includes('voe') || embedUrl.includes('voe.sx')) {
-      const voeHeaders = {
-        'User-Agent': CHROME_USER_AGENT,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Referer': 'https://voe.sx/'
-      };
-
-      const res = await fetch(embedUrl, { headers: voeHeaders, signal: AbortSignal.timeout(4000) });
-      if (res.ok) {
-        let text = await res.text();
-
-        // Si Voe usa redirección por script (window.location.href = '...')
-        const redirectMatch = text.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/i);
-        if (redirectMatch && redirectMatch[1]) {
-          try {
-            const redirectUrl = redirectMatch[1].startsWith('http') ? redirectMatch[1] : `https://voe.sx${redirectMatch[1]}`;
-            const redRes = await fetch(redirectUrl, { headers: voeHeaders, signal: AbortSignal.timeout(4000) });
-            if (redRes.ok) {
-              text = await redRes.text();
-            }
-          } catch (e) {}
-        }
-
-        // A. Regex Robusto para HLS (.m3u8) o MP4
-        const robustMatch = text.match(/["'](?:hls|mp4)["']\s*:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i);
-        if (robustMatch && robustMatch[1]) {
-          return robustMatch[1];
-        }
-
-        // B. Búsqueda en script con id __NEXT_DATA__
-        const nextDataMatch = text.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
-        if (nextDataMatch && nextDataMatch[1]) {
-          try {
-            const nextJson = JSON.parse(nextDataMatch[1]);
-            const findStream = (obj: any): string | null => {
-              if (!obj || typeof obj !== 'object') return null;
-              if (typeof obj.hls === 'string' && (obj.hls.includes('.m3u8') || obj.hls.startsWith('http'))) return obj.hls;
-              if (typeof obj.mp4 === 'string' && (obj.mp4.includes('.mp4') || obj.mp4.startsWith('http'))) return obj.mp4;
-              for (const k of Object.keys(obj)) {
-                const found = findStream(obj[k]);
-                if (found) return found;
-              }
-              return null;
-            };
-            const streamFound = findStream(nextJson);
-            if (streamFound) return streamFound;
-          } catch (e) {}
-        }
-
-        // C. Búsqueda de objeto JSON en variables JS (ej. sources = { ... })
-        const sourcesObjMatch = text.match(/(?:var|let|const)?\s*(?:sources|source)\s*=\s*(\{[\s\S]*?\});/i);
-        if (sourcesObjMatch && sourcesObjMatch[1]) {
-          try {
-            const parsed = JSON.parse(sourcesObjMatch[1].replace(/'/g, '"'));
-            if (parsed.hls && typeof parsed.hls === 'string') return parsed.hls;
-            if (parsed.mp4 && typeof parsed.mp4 === 'string') return parsed.mp4;
-          } catch (e) {}
-        }
-
-        // D. Petición a API interna si existe (como /api/...)
-        const apiMatch = text.match(/["'](\/(?:api|source|player)\/[^"']+)["']/i);
-        if (apiMatch && apiMatch[1]) {
-          try {
-            const domain = new URL(embedUrl).origin;
-            const apiUrl = apiMatch[1].startsWith('http') ? apiMatch[1] : `${domain}${apiMatch[1]}`;
-            const apiRes = await fetch(apiUrl, {
-              headers: {
-                'User-Agent': CHROME_USER_AGENT,
-                'Accept': 'application/json, text/plain, */*',
-                'Referer': 'https://voe.sx/'
-              },
-              signal: AbortSignal.timeout(4000)
-            });
-            if (apiRes.ok) {
-              const apiText = await apiRes.text();
-              const apiRegexMatch = apiText.match(/["'](?:hls|mp4)["']\s*:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i);
-              if (apiRegexMatch && apiRegexMatch[1]) return apiRegexMatch[1];
-
-              try {
-                const apiJson = JSON.parse(apiText);
-                if (apiJson.hls) return apiJson.hls;
-                if (apiJson.mp4) return apiJson.mp4;
-                if (apiJson.file) return apiJson.file;
-                if (apiJson.url) return apiJson.url;
-              } catch (e) {}
-            }
-          } catch (e) {}
-        }
+    // 2. Intento general usando stream-bypass con try/catch
+    try {
+      const { extract } = require('stream-bypass');
+      const directUrl = await extract(embedUrl);
+      if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('http')) {
+        return directUrl;
       }
+    } catch (sbError) {
+      // Si stream-bypass falla (bloqueo de IP o error de red), continúa con extractores específicos
     }
 
-    // 2. YourUpload Extractor (busca file: 'https://...mp4' en jwplayer)
+    // 3. Filemoon Extractor (P.A.C.K.E.R. unpacker y regex m3u8)
+    if (normalized.includes('filemoon') || embedUrl.includes('filemoon')) {
+      try {
+        const origin = new URL(embedUrl).origin;
+        const res = await fetch(embedUrl, {
+          headers: {
+            'User-Agent': CHROME_USER_AGENT,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Referer': `${origin}/`
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (res.ok) {
+          const html = await res.text();
+
+          // A. Desempaquetar código P.A.C.K.E.R.
+          const unpacked = unpackerEval(html);
+          if (unpacked) {
+            const fileMatch = unpacked.match(/file:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i) ||
+                              unpacked.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i);
+            if (fileMatch && fileMatch[1]) {
+              return fileMatch[1];
+            }
+          }
+
+          // B. Regex directo sobre HTML
+          const directMatch = html.match(/file:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i) ||
+                              html.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i);
+          if (directMatch && directMatch[1]) {
+            return directMatch[1];
+          }
+        }
+      } catch (filemoonErr) {}
+    }
+
+    // 4. Doodstream Extractor (/pass_md5/ endpoint con tokens dinámicos)
+    if (
+      normalized.includes('dood') ||
+      embedUrl.includes('dood') ||
+      embedUrl.includes('ds2play') ||
+      embedUrl.includes('myvidplay')
+    ) {
+      try {
+        const domain = new URL(embedUrl).origin;
+        const res = await fetch(embedUrl, {
+          headers: {
+            'User-Agent': CHROME_USER_AGENT,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Referer': `${domain}/`
+          },
+          signal: AbortSignal.timeout(5000)
+        });
+
+        if (res.ok) {
+          const html = await res.text();
+
+          // Buscar ruta /pass_md5/...
+          const md5Match = html.match(/\/pass_md5\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+/);
+          if (md5Match && md5Match[0]) {
+            const passMd5Url = `${domain}${md5Match[0]}`;
+            const md5Res = await fetch(passMd5Url, {
+              headers: {
+                'User-Agent': CHROME_USER_AGENT,
+                'Referer': embedUrl,
+                'X-Requested-With': 'XMLHttpRequest'
+              },
+              signal: AbortSignal.timeout(5000)
+            });
+
+            if (md5Res.ok) {
+              const baseCdnUrl = (await md5Res.text()).trim();
+              if (baseCdnUrl.startsWith('http')) {
+                const tokenMatch = html.match(/\?token=([^&"']+)/);
+                const token = tokenMatch ? tokenMatch[1] : '';
+                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                let randStr = '';
+                for (let i = 0; i < 10; i++) randStr += chars[Math.floor(Math.random() * chars.length)];
+                return `${baseCdnUrl}${randStr}?token=${token}&expiry=${Date.now()}`;
+              }
+            }
+          }
+
+          // Fallback regex directo
+          const directMatch = html.match(/["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i);
+          if (directMatch && directMatch[1]) {
+            return directMatch[1];
+          }
+        }
+      } catch (doodErr) {}
+    }
+
+    // 5. VOE Extractor (Referer: https://voe.sx/, reverse base64 y regex)
+    if (normalized.includes('voe') || embedUrl.includes('voe.sx')) {
+      try {
+        const voeHeaders = {
+          'User-Agent': CHROME_USER_AGENT,
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Referer': 'https://voe.sx/'
+        };
+
+        const res = await fetch(embedUrl, { headers: voeHeaders, signal: AbortSignal.timeout(4000) });
+        if (res.ok) {
+          let text = await res.text();
+
+          const redirectMatch = text.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/i);
+          if (redirectMatch && redirectMatch[1]) {
+            try {
+              const redirectUrl = redirectMatch[1].startsWith('http') ? redirectMatch[1] : `https://voe.sx${redirectMatch[1]}`;
+              const redRes = await fetch(redirectUrl, { headers: voeHeaders, signal: AbortSignal.timeout(4000) });
+              if (redRes.ok) text = await redRes.text();
+            } catch (e) {}
+          }
+
+          const robustMatch = text.match(/["'](?:hls|mp4)["']\s*:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i);
+          if (robustMatch && robustMatch[1]) return robustMatch[1];
+
+          const base64Matches = text.match(/['"]([A-Za-z0-9+/=]{40,})['"]/g);
+          if (base64Matches) {
+            for (const b64 of base64Matches) {
+              const clean = b64.replace(/['"]/g, '');
+              try {
+                const reversed = clean.split('').reverse().join('');
+                const decoded = Buffer.from(reversed, 'base64').toString('utf-8');
+                const m3u8 = decoded.match(/https?:\/\/[^"'\s]+\.(?:m3u8|mp4)[^"'\s]*/i);
+                if (m3u8) return m3u8[0];
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (voeErr) {}
+    }
+
+    // 6. YourUpload Extractor
     if (normalized.includes('yourupload') || embedUrl.includes('yourupload.com')) {
       const res = await fetch(embedUrl, {
         headers: {
@@ -662,7 +747,7 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
       }
     }
 
-    // 3. Si el enlace ya es directo .m3u8 o .mp4
+    // 7. Si el enlace ya es directo .m3u8 o .mp4
     if (embedUrl.startsWith('http') && !embedUrl.includes('novideo') && (embedUrl.includes('.m3u8') || embedUrl.endsWith('.mp4'))) {
       return embedUrl;
     }
@@ -677,6 +762,7 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
 interface MovieServer {
   nombre: string;
   url: string;
+  embedUrl: string;
   directUrl: string | null;
   isDirect: boolean;
 }
@@ -720,7 +806,8 @@ async function extractServersFromMoviePage(html: string): Promise<MovieServer[]>
           const directStream = await extractDirectStream(s.nombre, s.url);
           return {
             nombre: s.nombre,
-            url: s.url,
+            url: directStream || s.url,
+            embedUrl: s.url,
             directUrl: directStream || null,
             isDirect: Boolean(directStream)
           };
@@ -728,6 +815,7 @@ async function extractServersFromMoviePage(html: string): Promise<MovieServer[]>
           return {
             nombre: s.nombre,
             url: s.url,
+            embedUrl: s.url,
             directUrl: null,
             isDirect: false
           };
@@ -822,6 +910,7 @@ export async function GET(request: Request) {
     servers: servers.map(s => ({
       name: s.nombre,
       url: s.url,
+      embedUrl: s.embedUrl,
       directUrl: s.directUrl,
       isDirect: s.isDirect
     }))

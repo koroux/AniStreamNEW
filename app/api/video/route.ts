@@ -16,8 +16,18 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
   const normalized = serverName.toLowerCase();
 
   try {
-    // 1. VOE Extractor (Referer: https://voe.sx/, regex robusto, búsqueda de JSON y API)
+    // 1. VOE Extractor usando stream-bypass o decodificador integrado
     if (normalized.includes('voe') || embedUrl.includes('voe.sx')) {
+      // Intento usando stream-bypass con try/catch
+      try {
+        const { extract } = require('stream-bypass');
+        const directUrl = await extract(embedUrl);
+        if (directUrl && typeof directUrl === 'string' && directUrl.startsWith('http')) {
+          return directUrl;
+        }
+      } catch (sbError) {
+        // Si stream-bypass falla, continúa con el fallback
+      }
       const voeHeaders = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
