@@ -574,14 +574,28 @@ function unpackerEval(htmlContent: string): string | null {
 
 async function extractDirectStream(serverName: string, embedUrl: string): Promise<string | null> {
   const normalized = serverName.toLowerCase();
+  const lowerUrl = embedUrl.toLowerCase();
 
-  // 1. Vimeos: imposible de extraer, retornar null para que la app use WebView de respaldo
-  if (normalized.includes('vimeo')) {
+  // 1. Vimeos: imposible de extraer de forma nativa porque ofusca el video, devolver null inmediatamente
+  if (normalized.includes('vimeos') || lowerUrl.includes('vimeos.net')) {
+    return null;
+  }
+
+  // 2. Mantener la lógica de extracción únicamente para Filemoon, Doodstream y Voe
+  const isFilemoon = normalized.includes('filemoon') || lowerUrl.includes('filemoon');
+  const isDoodstream =
+    normalized.includes('dood') ||
+    lowerUrl.includes('dood') ||
+    lowerUrl.includes('ds2play') ||
+    lowerUrl.includes('myvidplay');
+  const isVoe = normalized.includes('voe') || lowerUrl.includes('voe');
+
+  if (!isFilemoon && !isDoodstream && !isVoe) {
     return null;
   }
 
   try {
-    // 2. Intento general usando stream-bypass con try/catch
+    // Intento con stream-bypass
     try {
       const { extract } = require('stream-bypass');
       const directUrl = await extract(embedUrl);
@@ -592,8 +606,8 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
       // Si stream-bypass falla (bloqueo de IP o error de red), continúa con extractores específicos
     }
 
-    // 3. Filemoon Extractor (P.A.C.K.E.R. unpacker y regex m3u8)
-    if (normalized.includes('filemoon') || embedUrl.includes('filemoon')) {
+    // A. Filemoon Extractor (P.A.C.K.E.R. unpacker y regex m3u8)
+    if (isFilemoon) {
       try {
         const origin = new URL(embedUrl).origin;
         const res = await fetch(embedUrl, {
@@ -608,19 +622,21 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
         if (res.ok) {
           const html = await res.text();
 
-          // A. Desempaquetar código P.A.C.K.E.R.
+          // Desempaquetar código P.A.C.K.E.R.
           const unpacked = unpackerEval(html);
           if (unpacked) {
-            const fileMatch = unpacked.match(/file:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i) ||
-                              unpacked.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i);
+            const fileMatch =
+              unpacked.match(/file:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i) ||
+              unpacked.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i);
             if (fileMatch && fileMatch[1]) {
               return fileMatch[1];
             }
           }
 
-          // B. Regex directo sobre HTML
-          const directMatch = html.match(/file:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i) ||
-                              html.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i);
+          // Regex directo sobre HTML
+          const directMatch =
+            html.match(/file:\s*["'](https?:\/\/[^"']+\.(?:m3u8|mp4)[^"']*)["']/i) ||
+            html.match(/["'](https?:\/\/[^"']+\.m3u8[^"']*)["']/i);
           if (directMatch && directMatch[1]) {
             return directMatch[1];
           }
@@ -628,13 +644,8 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
       } catch (filemoonErr) {}
     }
 
-    // 4. Doodstream Extractor (/pass_md5/ endpoint con tokens dinámicos)
-    if (
-      normalized.includes('dood') ||
-      embedUrl.includes('dood') ||
-      embedUrl.includes('ds2play') ||
-      embedUrl.includes('myvidplay')
-    ) {
+    // B. Doodstream Extractor (/pass_md5/ endpoint con tokens dinámicos)
+    if (isDoodstream) {
       try {
         const domain = new URL(embedUrl).origin;
         const res = await fetch(embedUrl, {
@@ -684,8 +695,8 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
       } catch (doodErr) {}
     }
 
-    // 5. VOE Extractor (Referer: https://voe.sx/, reverse base64 y regex)
-    if (normalized.includes('voe') || embedUrl.includes('voe.sx')) {
+    // C. VOE Extractor (Referer: https://voe.sx/, regex flexible y reverse base64)
+    if (isVoe) {
       try {
         const voeHeaders = {
           'User-Agent': CHROME_USER_AGENT,
@@ -723,33 +734,6 @@ async function extractDirectStream(serverName: string, embedUrl: string): Promis
           }
         }
       } catch (voeErr) {}
-    }
-
-    // 6. YourUpload Extractor
-    if (normalized.includes('yourupload') || embedUrl.includes('yourupload.com')) {
-      const res = await fetch(embedUrl, {
-        headers: {
-          'User-Agent': CHROME_USER_AGENT,
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Referer': 'https://www.cinecalidad.am/'
-        },
-        signal: AbortSignal.timeout(4000)
-      });
-      if (res.ok) {
-        const text = await res.text();
-        const fileMatch = text.match(/file:\s*'([^']+\.mp4[^']*)'/i) || text.match(/file:\s*"([^"]+\.mp4[^"]*)"/i);
-        if (fileMatch && fileMatch[1]) {
-          const directCandidate = fileMatch[1].trim();
-          if (directCandidate.startsWith('http') && !directCandidate.includes('novideo')) {
-            return directCandidate;
-          }
-        }
-      }
-    }
-
-    // 7. Si el enlace ya es directo .m3u8 o .mp4
-    if (embedUrl.startsWith('http') && !embedUrl.includes('novideo') && (embedUrl.includes('.m3u8') || embedUrl.endsWith('.mp4'))) {
-      return embedUrl;
     }
 
   } catch (err) {
@@ -806,7 +790,7 @@ async function extractServersFromMoviePage(html: string): Promise<MovieServer[]>
           const directStream = await extractDirectStream(s.nombre, s.url);
           return {
             nombre: s.nombre,
-            url: directStream || s.url,
+            url: s.url,
             embedUrl: s.url,
             directUrl: directStream || null,
             isDirect: Boolean(directStream)
